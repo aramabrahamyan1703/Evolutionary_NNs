@@ -1,0 +1,45 @@
+# Default experiment configuration. Copy and edit for new experiments.
+# All values here are PROPOSED defaults - see docs/PROJECT_PLAN.md "Decisions log".
+
+experiment:
+  name: core_ntrain_sweep
+  seeds: 30                     # independent repetitions per (method x n_train) cell
+  output_dir: results/raw
+
+data:
+  task: regression              # regression | classification
+  generator: sum_of_sines       # name of a generator in evonn.data
+  input_dim: 2
+  noise_std: 0.3                # Gaussian label noise -> Bayes MSE = noise_std**2
+  n_train: [25, 100, 400, 1600] # the single experimental factor (nested subsets)
+  n_val: 5000                   # fixed
+  n_test: 5000                  # fixed
+  data_seed: 0                  # generator / val / test fixed across all runs
+
+model:
+  hidden: 10
+  activation: tanh
+  weight_bounds: [-5.0, 5.0]
+  init: uniform                 # same init distribution for every method
+  init_scale: 0.5
+
+budget:
+  type: evaluations             # evaluations | wall_clock
+  max_evals: 20000              # full-training-set loss evaluations
+  grad_cost: 2                  # how many evals one (loss + gradient) call counts as - see D3
+
+methods:
+  cmaes:
+    sigma0: 0.5
+    popsize: null               # null -> cma default 4 + 3*ln(n)
+  ga:
+    pop_size: 100
+    cx_prob: 0.7
+    mut_prob: 0.2
+    mut_sigma: 0.3
+    tournament_size: 3
+  lbfgs:
+    maxcor: 10
+  sgd:
+    lr: 0.01
+    batch_size: 32

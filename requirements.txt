@@ -1,0 +1,25 @@
+# Core numerics
+numpy>=2.1
+scipy>=1.14            # L-BFGS-B baseline + statistical tests (Wilcoxon, Friedman)
+
+# Evolutionary algorithms
+cma>=4.0               # CMA-ES (primary EA)
+deap>=1.4              # GA (secondary EA)
+
+# Derivative-based reference / sanity checks
+scikit-learn>=1.5      # MLPRegressor/MLPClassifier as an off-the-shelf sanity baseline
+
+# Experiment management & analysis
+pandas>=2.2
+pyyaml>=6.0
+tqdm>=4.66
+matplotlib>=3.9
+seaborn>=0.13
+
+# Dev / notebooks
+pytest>=8.0
+ipykernel>=6.29
+
+# Optional: only if we decide to use PyTorch for the SGD/Adam baseline.
+# Not needed for the core experiment (we use our own numpy MLP).
+# torch>=2.5
