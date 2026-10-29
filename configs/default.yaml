@@ -14,7 +14,8 @@ data:
   n_train: [25, 100, 400, 1600] # the single experimental factor (nested subsets)
   n_val: 5000                   # fixed
   n_test: 5000                  # fixed
-  data_seed: 0                  # generator / val / test fixed across all runs
+  data_seed: 10000              # generator / val / test fixed across all runs;
+                                # must stay outside the run-seed range (0-29) to avoid leakage
 
 model:
   hidden: 10
