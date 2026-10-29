@@ -5,7 +5,7 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done. Phases match `docs/PROJEC
 ## Phase 0: Setup
 - [x] Folder structure, README, requirements, project plan, TODO
 - [ ] Create venv, `pip install -r requirements.txt`, `pip install -e .`
-- [ ] `pip freeze > requirements-lock.txt`
+- [x] `pip freeze > requirements-lock.txt`
 - [ ] First commit and push of the skeleton
 - [ ] Read Yao (1999) [25] and the Hansen CMA-ES tutorial, and add notes to `docs/literature/`
 
