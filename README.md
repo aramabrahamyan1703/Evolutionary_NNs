@@ -23,19 +23,20 @@ pip install -e .            # makes `import evonn` work from scripts/, tests/, n
 pytest                      # run the tests
 ```
 
-Smoke test (CMA-ES vs L-BFGS-B on one training set, writes a convergence figure to `figures/`):
+Smoke test (all methods on one training set, writes a convergence figure to `figures/`):
 
 ```bash
 python scripts/smoke_test.py                 # seed 0, n = 100
 python scripts/smoke_test.py --n 25 --max-evals 50000
 ```
 
-Run an experiment (once implemented):
+Run an experiment (one JSON per run in `results/raw/<experiment>/`; existing runs are skipped):
 
 ```bash
-python scripts/run_experiment.py --config configs/default.yaml
-python scripts/aggregate_results.py
-python scripts/make_figures.py
+python scripts/run_experiment.py --jobs 4                    # everything in configs/default.yaml
+python scripts/run_experiment.py --seeds 2 --methods cmaes   # a subset
+python scripts/aggregate_results.py                          # Phase 4 (not implemented yet)
+python scripts/make_figures.py                               # Phase 4 (not implemented yet)
 ```
 
 ## Repository layout
@@ -49,9 +50,10 @@ python scripts/make_figures.py
 │   ├── budget.py         #   evaluation counter + timer (makes the comparison fair)
 │   ├── seeding.py        #   separate random streams per run (init, optimiser)
 │   ├── metrics.py        #   train/val/test error, noise floor, generalisation gap
-│   ├── experiment.py     #   runs one (method, n_train, seed) cell -> one JSON row
+│   ├── methods.py        #   registry of training methods (shared interface)
+│   ├── experiment.py     #   runs one (method, n_train, seed) cell -> one JSON file
 │   ├── ea/               #   cmaes.py (primary), ga.py (DEAP)
-│   └── baselines/        #   lbfgs.py (scipy), sgd.py
+│   └── baselines/        #   lbfgs.py (scipy), sgd.py (mini-batch Adam / momentum)
 ├── scripts/              # CLI entry points: run, aggregate, plot
 ├── tests/                # pytest (gradient check, budget accounting, ...)
 ├── notebooks/            # exploration only; anything reusable moves into src/

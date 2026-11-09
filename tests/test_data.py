@@ -141,3 +141,23 @@ def test_custom_sigma():
 def test_generate_datasets_raises_on_data_seed():
     with pytest.raises(ValueError, match="DATA_SEED"):
         generate_datasets(DATA_SEED)
+
+
+def test_custom_sizes_and_data_seed():
+    d = generate_datasets(seed=0, train_sizes=(10, 30), n_val=50, n_test=60, data_seed=777)
+    assert set(d["train"]) == {10, 30}
+    assert np.array_equal(d["train"][10][0], d["train"][30][0][:10])
+    assert d["val"][0].shape == (50, 2)
+    assert d["test"][0].shape == (60, 2)
+    assert not np.array_equal(d["val"][0], generate_datasets(seed=0)["val"][0][:50])
+    with pytest.raises(ValueError):
+        generate_datasets(777, data_seed=777)
+
+
+def test_defaults_unchanged():
+    # the parametrised version must give exactly the data generated before
+    a = generate_datasets(seed=5)
+    b = generate_datasets(seed=5, sigma=SIGMA, train_sizes=TRAIN_SIZES, n_val=N_VAL,
+                          n_test=N_TEST, data_seed=DATA_SEED)
+    assert np.array_equal(a["train"][1600][0], b["train"][1600][0])
+    assert np.array_equal(a["test"][1], b["test"][1])

@@ -170,3 +170,69 @@ def test_snapshot_is_best_so_far_not_latest():
     loss_bad = obj.loss(bad)                # evals 2 -> checkpoint, but this one is worse
     assert loss_bad > loss_good
     assert np.array_equal(obj.snapshots[2][1], good)
+
+
+# ---------------------------------------------------------------- restarts
+
+def test_no_restarts_unless_marked():
+    obj = _objective()
+    obj.loss(_theta(0))
+    assert obj.restarts == []
+
+
+def test_restarts_track_their_own_best():
+    obj = _objective()
+    obj.begin_restart()
+    first = [obj.loss(_theta(s)) for s in range(5)]
+    obj.begin_restart()
+    second = [obj.loss(_theta(s)) for s in range(10, 13)]
+    r0, r1 = obj.restarts
+    assert (r0["start_evals"], r1["start_evals"]) == (0, 5)
+    assert r0["best_loss"] == min(first)
+    assert r1["best_loss"] == min(second)
+    assert np.array_equal(r1["best_theta"], _theta(10 + int(np.argmin(second))))
+    assert obj.best_loss == min(first + second)
+
+
+# ---------------------------------------------------------------- mini-batch gradients
+
+def test_batch_gradient_costs_its_share():
+    obj = _objective(grad_cost=2)                       # 30 training points
+    obj.batch_loss_and_grad(_theta(0), np.arange(6))
+    assert obj.evals_used == pytest.approx(2 * 6 / 30)
+
+
+def test_batch_gradient_matches_model_on_subset():
+    obj = _objective()
+    idx = np.array([3, 7, 11])
+    value, grad = obj.batch_loss_and_grad(_theta(1), idx)
+    ref_value, ref_grad = MODEL.loss_and_grad(_theta(1), obj.X[idx], obj.y[idx])
+    assert value == pytest.approx(ref_value)
+    assert np.allclose(grad, ref_grad)
+
+
+def test_batch_gradient_does_not_update_best():
+    obj = _objective()
+    obj.batch_loss_and_grad(_theta(0), np.arange(5))
+    assert obj.best_theta is None
+    assert obj.trace == []
+
+
+def test_fractional_costs_fill_budget_exactly():
+    # 0.1 is not exact in binary; 100 batch calls must still fit a budget of 10
+    obj = _objective(max_evals=10, grad_cost=1)         # 30 points, batch of 3 -> 0.1 each
+    obj.loss(_theta(0))
+    for _ in range(90):
+        obj.batch_loss_and_grad(_theta(0), np.arange(3))
+    assert obj.evals_used == pytest.approx(10)
+    with pytest.raises(BudgetExhausted):
+        obj.batch_loss_and_grad(_theta(0), np.arange(3))
+
+
+def test_batch_calls_take_snapshots():
+    obj = _objective(max_evals=20, grad_cost=2, checkpoints=[1, 5])
+    obj.loss(_theta(0))                                  # evals 1 -> checkpoint 1
+    for _ in range(4):
+        obj.batch_loss_and_grad(_theta(1), np.arange(30))   # +2 each -> passes 5
+    assert set(obj.snapshots) == {1, 5}
+    assert np.array_equal(obj.snapshots[5][1], _theta(0))   # best is still the full-loss one

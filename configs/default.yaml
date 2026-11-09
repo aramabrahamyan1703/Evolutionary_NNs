@@ -4,6 +4,7 @@
 experiment:
   name: core_ntrain_sweep
   seeds: 30                     # independent repetitions per (method x n_train) cell
+  methods: [cmaes, ga, lbfgs, sgd]  # names from evonn.methods.METHODS
   output_dir: results/raw
 
 data:                           # target f(x) = sin(pi*x1) + sin(pi*x2), defined in evonn.data
@@ -26,19 +27,26 @@ budget:
   type: evaluations             # evaluations | wall_clock
   max_evals: 100000             # full-training-set loss evaluations (D4: see pilot in PROJECT_PLAN 4.1)
   grad_cost: 2                  # how many evals one (loss + gradient) call counts as - see D3
+  max_seconds: null             # time limit per run when type = wall_clock (set in Phase 3)
 
 methods:
   cmaes:
     sigma0: 0.5
     popsize: null               # null -> cma default 4 + 3*ln(n)
-  ga:
+  ga:                           # untuned defaults, tuned in Phase 3
     pop_size: 100
-    cx_prob: 0.7
-    mut_prob: 0.2
-    mut_sigma: 0.3
+    elitism: 1                  # best individuals copied unchanged to the next generation
     tournament_size: 3
+    cx_prob: 0.7                # probability a pair is recombined
+    cx_alpha: 0.5               # blend crossover extent
+    mut_prob: 0.2               # probability a child is mutated
+    mut_sigma: 0.3              # Gaussian mutation step
+    mut_indpb: 0.1              # per-weight mutation probability (~4 of 41 weights)
   lbfgs:
     maxcor: 10
-  sgd:
+  sgd:                          # mini-batch baseline; untuned defaults, tuned in Phase 3
+    optimizer: adam             # adam | momentum
     lr: 0.01
-    batch_size: 32
+    momentum: 0.9               # only used by optimizer = momentum
+    batch_size: 32              # capped at n (n = 25 -> full batch)
+    eval_every: 5               # epochs between full training-loss evaluations (~9% of the budget)

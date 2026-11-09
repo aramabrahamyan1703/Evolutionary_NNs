@@ -8,11 +8,11 @@ _Last updated: 2026-11-09_
 |---|---|
 | Repo skeleton, requirements, plan, TODO | ✅ done |
 | Core decisions (D1–D8 below) | ✅ all confirmed (D3–D6 from measurements, see §4.1) |
-| Code (`src/evonn`) | ✅ Phase 1: data, seeding, MLP, budget, metrics, smoke test, budget pilot (65 tests) · ⬜ Phase 2 optimisers |
+| Code (`src/evonn`) | ✅ Phase 1 · ✅ Phase 2: CMA-ES, GA, L-BFGS-B, SGD, experiment runner (128 tests) |
 | Experiments | ⬜ not started |
 | Report | ⬜ not started |
 
-**Next step:** Phase 2: move CMA-ES and L-BFGS-B into `ea/` and `baselines/`, write the DEAP GA and `experiment.py`.
+**Next step:** Phase 3: tune the GA and CMA-ES with equal effort, check the GA plateaus by 100k, freeze `configs/core.yaml`.
 
 ---
 
@@ -60,7 +60,7 @@ report training and test error side by side.
 | Primary EA | CMA-ES | `cma` | Full covariance is cheap at ~40–120 params |
 | Secondary EA | Real-coded GA | `deap` | Tournament selection, blend crossover, Gaussian mutation |
 | Primary baseline | L-BFGS-B | `scipy.optimize` | Full-batch, deterministic, bounded |
-| Secondary baseline | Mini-batch SGD/Adam | own numpy | Optional, a more "typical" deep-learning optimiser |
+| Secondary baseline | Mini-batch SGD (Adam by default) | own numpy | A more "typical" deep-learning optimiser; mini-batch noise is a second implicit regulariser |
 | Sanity check | `MLPRegressor` | `scikit-learn` | Only to check our numbers are in a plausible range |
 
 ### 3.4 Budget (what we equalise and why)
@@ -68,6 +68,9 @@ report training and test error side by side.
   - It is hardware- and implementation-independent, it is reproducible, and it is the natural unit for EAs.
   - A loss + gradient call costs `grad_cost` evaluations (decision **D3**). Reverse-mode backprop costs
     1.8–2.3 loss evaluations in our implementation (measured, §4.1), so `grad_cost = 2`, with a sensitivity check at 1 and 3.
+- **Mini-batch gradients (SGD):** a gradient on b of the n training points costs `grad_cost · b/n` evaluations, so one
+  epoch costs one full gradient. Mini-batch losses are not full training losses, so SGD evaluates the full training loss
+  every 5 epochs (cost 1 each, ~9% of its budget) and those evaluations pick the returned network (D6).
 - **Secondary:** **wall-clock time** (`time.perf_counter()`), reported for the same runs. This
   shows whether the conclusion survives the EA's per-generation overhead (sampling, covariance updates).
 - **Budget-filling:** L-BFGS usually converges long before the budget runs out. Leftover budget goes to
@@ -88,8 +91,9 @@ report training and test error side by side.
   validation can be reported as a secondary analysis without re-running anything.
 - The validation set is used only in the extensions (architecture and weight-decay evolution) and for an optional early-stopping ablation.
 
-### 3.6 Measurements per run (one JSON row each)
-`method, n_train, seed, train_mse, val_mse, test_mse, noise_floor, evals_used, wall_time, final θ norm, (optional) sharpness proxy`
+### 3.6 Measurements per run (one JSON file each)
+See the docstring of `src/evonn/experiment.py`: meta (incl. full config and git commit), budget used, final metrics,
+final weights, convergence curve, best-validation checkpoint and per-restart results.
 
 ### 3.7 Repetitions and statistics
 - **30 seeds** per (method × n_train) cell. The seed fixes the training sample and initialisation, and is **shared across methods**, so comparisons are paired.
@@ -152,7 +156,7 @@ Repo, venv, requirements, plan, TODO.
 - **Smoke test:** CMA-ES vs L-BFGS-B at n = 100 with one seed, printing train and test MSE.
 
 ### Phase 2: Optimisers
-- CMA-ES (bounded), GA (DEAP), L-BFGS-B with restarts, and optionally SGD.
+- CMA-ES (bounded), GA (DEAP), L-BFGS-B with restarts, mini-batch SGD (Adam).
 - Each one returns the same result dict and respects the budget exactly.
 
 ### Phase 3: Pilot and tuning

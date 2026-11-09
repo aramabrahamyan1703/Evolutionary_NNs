@@ -58,25 +58,27 @@ def sample(n, rng, sigma=SIGMA):
     return X, y
 
 
-def generate_datasets(seed, sigma=SIGMA):
+def generate_datasets(seed, sigma=SIGMA, train_sizes=TRAIN_SIZES, n_val=N_VAL,
+                      n_test=N_TEST, data_seed=DATA_SEED):
     """Return the training, validation and test sets for one run.
 
-    train: dict {n: (X, y)} for n in TRAIN_SIZES. Each set is the first n
-           points of one pool of 1600 points drawn with `seed`.
-    val, test: (X, y), always the same (they use DATA_SEED).
+    train: dict {n: (X, y)} for n in train_sizes. Each set is the first n
+           points of one pool of max(train_sizes) points drawn with `seed`.
+    val, test: (X, y), always the same (they use data_seed).
     noise_floor: sigma**2, the lowest possible test MSE.
 
-    `seed` must not equal DATA_SEED, otherwise the training points would
+    The defaults are the constants above; experiments pass the config values.
+    `seed` must not equal data_seed, otherwise the training points would
     coincide with the validation points.
     """
-    if seed == DATA_SEED:
+    if seed == data_seed:
         raise ValueError("seed must differ from DATA_SEED to avoid data leakage")
 
-    data_rng = np.random.default_rng(DATA_SEED)
-    val = sample(N_VAL, data_rng, sigma)
-    test = sample(N_TEST, data_rng, sigma)
+    data_rng = np.random.default_rng(data_seed)
+    val = sample(n_val, data_rng, sigma)
+    test = sample(n_test, data_rng, sigma)
 
-    X_pool, y_pool = sample(max(TRAIN_SIZES), np.random.default_rng(seed), sigma)
-    train = {n: (X_pool[:n], y_pool[:n]) for n in TRAIN_SIZES}
+    X_pool, y_pool = sample(max(train_sizes), np.random.default_rng(seed), sigma)
+    train = {n: (X_pool[:n], y_pool[:n]) for n in train_sizes}
 
     return {"train": train, "val": val, "test": test, "noise_floor": sigma**2}

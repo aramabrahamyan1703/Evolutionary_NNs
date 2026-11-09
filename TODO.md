@@ -26,13 +26,16 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done. Phases match `docs/PROJEC
 - [x] Budget pilot `scripts/pilot_budget.py` → D4 = 100k evaluations
 
 ## Phase 2: Optimisers
-- [ ] `ea/cmaes.py`: bounded CMA-ES, logs best-so-far against evals
-- [ ] `baselines/lbfgs.py`: L-BFGS-B with bounds and random restarts that fill the budget
-- [ ] `ea/ga.py`: DEAP real-coded GA (tournament, blend crossover, Gaussian mutation, clipping)
-- [ ] `baselines/sgd.py` (optional): mini-batch SGD/Adam on the shared MLP
-- [ ] Common result dict / JSON schema for all methods (incl. per-restart results and best-validation checkpoint, D6)
-- [ ] `experiment.py` + `scripts/run_experiment.py`: run one cell from the config and write JSON
-- [ ] `experiment.py` passes config values into `generate_datasets` (then the yaml is the only source)
+- [x] Shared interface `run(obj, model, x0, seed, params)` + registry `methods.py`; `obj.begin_restart()` records each restart
+- [x] `ea/cmaes.py`: bounded CMA-ES with restarts
+- [x] `baselines/lbfgs.py`: L-BFGS-B with bounds and random restarts that fill the budget
+- [x] `ea/ga.py`: DEAP real-coded GA (tournament, blend crossover, Gaussian mutation, clipping, elitism 1)
+- [x] `baselines/sgd.py`: mini-batch Adam (or momentum SGD), clipped to ±5; mini-batch gradients charged grad_cost·b/n
+- [x] Common JSON result for all methods (final, theta, curve, best-validation checkpoint, per-restart results)
+- [x] `experiment.py` + `scripts/run_experiment.py`: parallel, resumable, one JSON per run
+- [x] `experiment.py` passes config values into `generate_datasets` (the yaml is the only source)
+- [x] `tests/test_optimizers.py` + `tests/test_experiment.py` (128 tests in total)
+- [x] Smoke test and budget pilot use the package optimisers (pilot reproduces §4.1 exactly)
 
 ## Phase 3: Pilot and tuning
 - [ ] Convergence curves for all methods incl. GA at 100k (5 seeds); check the GA also plateaus
