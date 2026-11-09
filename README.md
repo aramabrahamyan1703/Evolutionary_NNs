@@ -1,60 +1,72 @@
-# Do Evolutionary Algorithms Generalise Better? A Controlled Comparison with Gradient-Based Methods Under Data Scarcity
-> *Alternative title: Beyond Sharp Minima: Can CMA-ES Outgeneralise L-BFGS When Training Data Is Scarce?*
+# Training Neural Networks with Evolutionary Algorithms
 
-**Authors:** Marta Mateu · Aram Abrahamyan
+Do evolutionary algorithms (CMA-ES, GA) train MLPs that **generalise** better than
+derivative-based methods (L-BFGS, SGD) under the **same computational budget**, or do
+they just fit the training data equally well? And does the answer depend on the
+**training-set size**?
 
----
+**Working hypothesis:** the EA doesn't follow the gradient into the nearest sharp
+minimum, so any advantage it has should show up with small or noisy training samples
+and disappear with large ones.
 
-Between 2017 and 2019, OpenAI, Uber AI Labs, and Google Brain demonstrated that
-evolutionary algorithms are competitive with backpropagation in control tasks and
-architecture search (Salimans et al., 2017; Such et al., 2017; Real et al., 2017).
-The theoretical basis for a generalisation advantage exists: Keskar et al. (2017)
-showed that optimisers converging to **flat minima** generalise significantly better,
-and evolutionary algorithms — operating without gradients over a population — carry a
-structural bias towards flatter regions of the loss surface. However, whether this
-advantage extends to **supervised regression under data scarcity** has not been
-systematically studied. This work addresses that gap directly.
+See [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) for the full design, decisions log
+and roadmap, and [`TODO.md`](TODO.md) for current tasks.
 
-We compare CMA-ES and a real-coded genetic algorithm against L-BFGS across training
-set sizes spanning two orders of magnitude (`n ∈ {25, 100, 400, 1600}`), on a
-controlled regression task with a known noise floor.
+## Quickstart
 
-## Report structure
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements-lock.txt   # exact versions, so everyone gets the same results
+pip install -e .            # makes `import evonn` work from scripts/, tests/, notebooks/
+pytest                      # run the tests
+```
 
-The report follows the 5-section format required by the assignment (§1.2, 10 pages max):
+Smoke test (CMA-ES vs L-BFGS-B on one training set, writes a convergence figure to `figures/`):
 
-**1. Question and hypothesis**
-- Research question: does an EA find networks that generalise better than a gradient-based method under the same budget? Does the answer depend on training-set size?
-- H1: the EA does not follow the gradient into the nearest sharp minimum, so any advantage shows up at small n and disappears at large n.
-- Falsified by: EA test error ≥ baseline at every n, or advantage grows with n, or lower test error comes purely from higher training error (underfitting, not flat minima).
+```bash
+python scripts/smoke_test.py                 # seed 0, n = 100
+python scripts/smoke_test.py --n 25 --max-evals 50000
+```
 
-**2. Design**
-- Single factor: `n_train ∈ {25, 100, 400, 1600}` (geometric, ×4 steps).
-- Fixed: MLP architecture (1 hidden layer, H=10 tanh units, d=2 inputs → 41 params), weight bounds [−5, 5], same initial distribution, same val/test sets (5000 points each, fixed `data_seed`).
-- Budget equalised by number of error-function evaluations (loss+grad = 2 evals); wall-clock reported as secondary.
-- Baseline: L-BFGS-B with random restarts to fill the budget. Sanity check: `sklearn.MLPRegressor`.
-- 30 seeds per cell, shared across methods (paired comparison).
+Run an experiment (once implemented):
 
-**3. Results**
-- Main figure: test MSE − σ² vs n (log-log), one line per method, median + IQR.
-- Effect sizes: Vargha–Delaney A₁₂ and median difference with bootstrap CI (not only p-values).
-- Tests: Wilcoxon signed-rank (paired, same seeds) with Holm correction across the 4 sizes.
-- Always report train MSE alongside test MSE to distinguish underfitting from flat-minima effects.
+```bash
+python scripts/run_experiment.py --config configs/default.yaml
+python scripts/aggregate_results.py
+python scripts/make_figures.py
+```
 
-**4. Mechanism**
-- Support the explanation with a measurement, not only final fitness:
-  - Convergence curves: best-so-far train/val/test error vs evaluations.
-  - (Optional) Sharpness proxy: loss increase under random weight perturbation at the found minimum.
-  - (Optional) Weight norm and fraction of weights at ±5 bounds.
+## Repository layout
 
-**5. Limitations**
-- Synthetic data only (sum-of-sines, d=2); conclusions may not transfer to real datasets.
-- Single architecture (H=10); EA advantage may depend on model size relative to n.
-- Budget choice (20k evals) may favour one method; sensitivity checked via convergence curves.
-- Results are specific to regression; classification landscapes may differ.
+```
+.
+├── configs/              # YAML experiment configs (one per experiment)
+├── src/evonn/            # the installable package
+│   ├── data.py           #   synthetic generators (expose the noise-free f for the Bayes error)
+│   ├── mlp.py            #   shared numpy MLP, flat weight vector, manual backprop
+│   ├── budget.py         #   evaluation counter + timer (makes the comparison fair)
+│   ├── seeding.py        #   separate random streams per run (init, optimiser)
+│   ├── metrics.py        #   train/val/test error, noise floor, generalisation gap
+│   ├── experiment.py     #   runs one (method, n_train, seed) cell -> one JSON row
+│   ├── ea/               #   cmaes.py (primary), ga.py (DEAP)
+│   └── baselines/        #   lbfgs.py (scipy), sgd.py
+├── scripts/              # CLI entry points: run, aggregate, plot
+├── tests/                # pytest (gradient check, budget accounting, ...)
+├── notebooks/            # exploration only; anything reusable moves into src/
+├── results/
+│   ├── raw/              # per-run JSON (gitignored, regenerable)
+│   └── processed/        # aggregated CSV tables (committed)
+├── figures/              # figures for the report (committed)
+├── docs/                 # project plan, literature notes
+└── report/               # final write-up
+```
 
 ## Reproducibility
 
 - Every run is identified by `(config, method, n_train, seed)` and writes one JSON row to `results/raw/`.
 - Validation and test sets are generated once from a fixed `data_seed`; training sets are nested subsets.
-- After installing, freeze exact versions with `pip freeze > requirements-lock.txt`.
+- `requirements.txt` lists the packages with loose versions (edit this one). After changing it, reinstall and
+  refresh the lock file with `pip freeze > requirements-lock.txt`.
+- Random streams: data uses `default_rng(seed)`; everything else uses `evonn.seeding.rng(seed, stream)`.

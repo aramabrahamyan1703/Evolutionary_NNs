@@ -18,12 +18,13 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done. Phases match `docs/PROJEC
 - [x] `data.py`: generator with an exposed noise-free `f`, fixed val/test sets (5000 each), nested training sets
 - [x] `tests/test_data.py`: 14 tests covering shapes, nesting, reproducibility, leakage guard, noise floor
 - [x] Visual check in `notebooks/01_data_check.ipynb` (surface, noise, floor, nested sets, report figure)
-- [ ] `mlp.py`: `n_params`, `unpack`, `forward`, `loss`, `loss_and_grad` (init weights with `rng(seed, INIT)`)
-- [ ] `tests/test_mlp.py`: finite-difference gradient check (rel. error < 1e-6)
-- [ ] `budget.py`: evaluation counter (with `grad_cost`) and `perf_counter` timer
-- [ ] `tests/test_budget.py`: the counter stops exactly at `max_evals`
-- [ ] `metrics.py`: train/val/test MSE, noise floor, gap
-- [ ] **Smoke test:** CMA-ES vs L-BFGS-B, n=100, 1 seed, print train/test MSE
+- [x] `mlp.py`: `MLP` dataclass with `n_params`, `pack`/`unpack`, `init`, `forward`, `loss`, `loss_and_grad`, `loss_many`
+- [x] `tests/test_mlp.py`: 26 tests incl. finite-difference gradient check (rel. error < 1e-6)
+- [x] `budget.py`: `CountedObjective` (counting, `BudgetExhausted`, best-so-far, trace, checkpoint snapshots, time limit)
+- [x] `tests/test_budget.py`: 17 tests, the counter never exceeds `max_evals`
+- [x] `metrics.py` + `tests/test_metrics.py`: train/val/test MSE, excess, clean test MSE, gap, weights at bounds
+- [x] **Smoke test:** `scripts/smoke_test.py` (CMA-ES vs L-BFGS-B, same start, restarts, convergence figure)
+- [ ] Decide D4 from the smoke test: CMA-ES never converged in 20k evals (0 restarts); try 50k–100k
 
 ## Phase 2: Optimisers
 - [ ] `ea/cmaes.py`: bounded CMA-ES, logs best-so-far against evals
