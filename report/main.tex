@@ -1,0 +1,219 @@
+\documentclass[11pt]{article}
+
+% Define margins (geometry overrides \setlength, so we use only geometry)
+\usepackage{geometry}
+\geometry{top=2cm, bottom=2cm, left=2cm, right=2cm, headheight=23pt}
+
+\usepackage{graphicx}
+\graphicspath{{images/}}
+\usepackage{float}
+\usepackage{wrapfig}
+\usepackage[colorlinks=true, linkcolor=black, citecolor=black, urlcolor=blue]{hyperref}
+\usepackage{subcaption}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{ marvosym }
+
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, chains}
+
+% Define header and footer
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{{\includegraphics[height=.65cm]{images/Logo_UPC.svg.png}}}
+\rhead{\textbf{\textit{Computational Intelligence}}}
+\cfoot{\textbf{\textit{\thepage}}}
+\renewcommand{\headrulewidth}{0.7pt}
+
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[utf8]{inputenc}
+\usepackage{enumitem}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    breakatwhitespace=true,
+}
+
+% To manage references
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\usepackage[skip=10pt plus1pt, indent=20pt]{parskip}
+
+\begin{document}
+
+% Title Page %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{center}
+
+\includegraphics[width=1\textwidth]{images/logo.jpg}\\
+\vfill
+
+{\huge \textbf{Do Evolutionary Algorithms Generalise Better? A Controlled Comparison with Gradient-Based Methods Under Data Scarcity}}
+
+\vspace*{3\baselineskip}
+
+{\LARGE \textbf{Computational Intelligence final project}}
+
+\begin{large}
+\vspace*{2\baselineskip}
+
+09/11/2026
+
+\vspace*{2\baselineskip}
+
+\emph{Students} \\[1ex]
+{\Large Aram Abrahamyan\par}
+{\Large Marta Mateu López\par}
+\vspace*{2\baselineskip}
+\emph{Teacher} \\[1ex]
+{\Large Lluís A. Belanche \\ \par}
+\vspace*{2\baselineskip}
+
+\vspace*{4\baselineskip}
+
+{Facultat d'Informàtica de Barcelona}\\
+{\large Universitat Politècnica de Catalunya}\par
+
+\thispagestyle{empty}
+
+\end{large}
+\end{center}
+\pagebreak
+
+% Contents %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+\pagenumbering{roman}
+\tableofcontents
+\cleardoublepage
+\pagenumbering{arabic}
+\typeout{}
+
+% ============================================================
+\section{Introduction}
+% ============================================================
+
+Gradient-based methods such as backpropagation or L-BFGS are the standard way to
+train neural networks. They are fast and work well with abundant data, but they
+follow the gradient into the nearest local minimum. If that minimum is
+\emph{sharp}, meaning the loss rises steeply around it, the network tends to
+generalise poorly. \citet{keskar2017} showed that training procedures that
+converge to sharp minima generalise worse than those that reach flat ones, and
+\citet{li2018} propose a way to visualise the loss surface that makes the
+flatness of different minima comparable.
+
+Evolutionary algorithms (EAs) are a gradient-free alternative that has been used
+to train neural networks for decades \citep{yao1999}. They maintain a population
+of candidate solutions and explore the parameter space through selection, mutation
+and recombination, so they are not tied to a single descent direction. Recent work
+has shown that this approach is competitive at scale: \citet{salimans2017} matched
+deep reinforcement learning on control tasks with evolution strategies,
+\citet{such2017} reached the performance of DQN and A3C on Atari by evolving
+network weights with a plain genetic algorithm, and \citet{real2017} found
+architectures comparable to human-designed ones. Since EAs do not chase the
+gradient, they may also be biased towards flatter regions of the loss surface.
+
+This evidence comes almost entirely from reinforcement learning and architecture
+search. Whether an EA generalises better in \textbf{supervised regression under
+data scarcity} has not, to the best of our knowledge, been studied in a controlled
+way, and this is the gap we address. We compare CMA-ES and a real-coded genetic algorithm against L-BFGS on a
+synthetic regression task with a known noise floor, across training set sizes
+spanning almost two orders of magnitude ($n \in \{25, 100, 400, 1600\}$). The known
+noise level lets us measure generalisation error relative to the best achievable
+error, not only training error.
+
+% ============================================================
+\section{Question and Hypothesis}
+% ============================================================
+
+\noindent\textbf{Research questions.}
+\begin{itemize}
+  \item[\textbf{RQ1.}] With the same computational budget, does an evolutionary
+    algorithm find MLPs that \emph{generalise} better than a derivative-based
+    method, or only networks that fit the training data equally well?
+  \item[\textbf{RQ2.}] Does the answer depend on the training sample size~$n$?
+\end{itemize}
+
+\medskip
+\noindent\textbf{Hypothesis (H1).}
+The EA does not follow the gradient into the nearest sharp minimum, so any
+generalisation advantage should appear as a \emph{lower test error at small~$n$},
+where the training sample is easy to overfit, and vanish at large~$n$, where every
+reasonable optimiser generalises about equally well.
+
+\medskip
+\noindent\textbf{What would falsify H1.} The hypothesis is refuted if any of the
+following holds:
+\begin{enumerate}
+  \item The EA's test error is greater than or equal to the baseline's at every~$n$.
+  \item The EA's advantage grows with~$n$ instead of shrinking.
+  \item The EA reaches a lower test error only because of a higher training error,
+        which would indicate underfitting rather than flatter minima.
+\end{enumerate}
+To tell these cases apart, training and test error are always reported together.
+
+% ============================================================
+\section{Design}
+% ============================================================
+
+% TODO
+
+% ============================================================
+\section{Results}
+% ============================================================
+
+% TODO
+
+% ============================================================
+\section{Mechanism}
+% ============================================================
+
+% TODO
+
+% ============================================================
+\section{Limitations}
+% ============================================================
+
+% TODO
+
+% ============================================================
+\section*{Use of AI Tools}
+\addcontentsline{toc}{section}{Use of AI Tools}
+% ============================================================
+
+During this project we used OpenCode (powered by Claude Sonnet, Anthropic) and
+Claude (Anthropic) as AI assistants. Specifically, we used them for the following
+tasks:
+
+\begin{itemize}
+  \item Summarising and contextualising the relevant literature (Yao~1999,
+        Hansen~2016, Keskar et al.~2017, Salimans et al.~2017, Such et al.~2017,
+        Real et al.~2017, Li et al.~2018), which we used to motivate the research
+        question and hypothesis.
+  \item Drafting the \emph{Introduction} and \emph{Question and Hypothesis} sections
+        of this report, and restructuring them to remove redundancy between the
+        two. We then reviewed, discussed and agreed on them as accurately
+        reflecting our experimental design.
+  \item Suggesting the report structure in line with the assignment requirements~(\S1.2).
+  \item Formatting the title page, header and table of contents in \LaTeX.
+\end{itemize}
+
+All experimental decisions (data generator, model architecture, budget definition,
+statistical tests, choice of methods) were made by us and are documented in
+\texttt{docs/PROJECT\_PLAN.md}. All code was written by us. The AI was not used to
+generate or run experiments, interpret results, or write the Design, Results,
+Mechanism or Limitations sections.
+
+% ============================================================
+\addcontentsline{toc}{section}{References}
+\bibliographystyle{abbrvnat}
+\bibliography{references}
+% ============================================================
+
+\end{document}
