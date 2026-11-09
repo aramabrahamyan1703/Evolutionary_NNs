@@ -18,7 +18,7 @@ and roadmap, and [`TODO.md`](TODO.md) for current tasks.
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements-lock.txt   # exact versions, so everyone gets the same results
 pip install -e .            # makes `import evonn` work from scripts/, tests/, notebooks/
 pytest                      # run the tests
 ```
@@ -40,6 +40,7 @@ python scripts/make_figures.py
 │   ├── data.py           #   synthetic generators (expose the noise-free f for the Bayes error)
 │   ├── mlp.py            #   shared numpy MLP, flat weight vector, manual backprop
 │   ├── budget.py         #   evaluation counter + timer (makes the comparison fair)
+│   ├── seeding.py        #   separate random streams per run (init, optimiser)
 │   ├── metrics.py        #   train/val/test error, noise floor, generalisation gap
 │   ├── experiment.py     #   runs one (method, n_train, seed) cell -> one JSON row
 │   ├── ea/               #   cmaes.py (primary), ga.py (DEAP)
@@ -59,4 +60,6 @@ python scripts/make_figures.py
 
 - Every run is identified by `(config, method, n_train, seed)` and writes one JSON row to `results/raw/`.
 - Validation and test sets are generated once from a fixed `data_seed`; training sets are nested subsets.
-- After installing, freeze exact versions with `pip freeze > requirements-lock.txt`.
+- `requirements.txt` lists the packages with loose versions (edit this one). After changing it, reinstall and
+  refresh the lock file with `pip freeze > requirements-lock.txt`.
+- Random streams: data uses `default_rng(seed)`; everything else uses `evonn.seeding.rng(seed, stream)`.

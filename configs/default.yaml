@@ -6,9 +6,7 @@ experiment:
   seeds: 30                     # independent repetitions per (method x n_train) cell
   output_dir: results/raw
 
-data:
-  task: regression              # regression | classification
-  generator: sum_of_sines       # name of a generator in evonn.data
+data:                           # target f(x) = sin(pi*x1) + sin(pi*x2), defined in evonn.data
   input_dim: 2
   noise_std: 0.3                # Gaussian label noise -> Bayes MSE = noise_std**2
   n_train: [25, 100, 400, 1600] # the single experimental factor (nested subsets)

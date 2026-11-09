@@ -1,14 +1,14 @@
 # Project Plan: Training Neural Networks with Evolutionary Algorithms
 
-_Last updated: 2026-10-25_
+_Last updated: 2026-11-09_
 
 ## 1. Where we are
 
 | Item | Status |
 |---|---|
 | Repo skeleton, requirements, plan, TODO | ✅ done |
-| Core decisions (D1–D7 below) | 🟡 proposed, need confirming |
-| Code (`src/evonn`) | ⬜ stubs only |
+| Core decisions (D1–D7 below) | ✅ D1, D2, D7 fixed by `data.py` · 🟡 D3–D6 still to confirm |
+| Code (`src/evonn`) | 🟡 `data.py` + tests + data notebook done, `seeding.py` added; MLP, budget, optimisers to do |
 | Experiments | ⬜ not started |
 | Report | ⬜ not started |
 
@@ -96,13 +96,15 @@ report training and test error side by side.
 
 | ID | Decision | Proposed | Status | Rationale |
 |---|---|---|---|---|
-| D1 | Task / generator | Regression, smooth nonlinear `f` on [−1,1]² (sum of sines). Alternative: random "teacher" MLP | 🟡 | Regression gives an exact noise floor σ² |
-| D2 | Noise level | σ = 0.3 (try 0.1 and 0.5 if time allows) | 🟡 | "Noisy" is part of the hypothesis |
+| D1 | Task / generator | Regression, f(x) = sin(πx₁) + sin(πx₂) on [−1,1]² | ✅ | Regression gives an exact noise floor σ² |
+| D2 | Noise level | σ = 0.3, noise floor 0.09 (try 0.1 and 0.5 if time allows) | ✅ | "Noisy" is part of the hypothesis |
 | D3 | Budget unit | Evaluations, with loss+grad = 2 evals, plus wall-clock as a secondary measure | 🟡 | See §3.4 |
 | D4 | Budget size | 20 000 evals (to be tuned in the pilot) | 🟡 | Must be large enough that both methods have roughly converged |
 | D5 | Hidden size | H = 10 | 🟡 | Middle of the suggested 5–20 range |
 | D6 | Final-model selection | Best training loss, no early stopping | 🟡 | Isolates the optimiser's effect |
-| D7 | Seeds | 30 | 🟡 | Enough for paired non-parametric tests |
+| D7 | Seeds | 30 (run seeds 0–29, `DATA_SEED` = 10000 for val/test) | ✅ | Enough for paired non-parametric tests |
+
+| D8 | Random streams | Data uses `default_rng(seed)`; weight init and optimisers use `evonn.seeding.rng(seed, stream)` | ✅ | Initial weights never reuse the training data's random numbers |
 
 Whenever you change a default from the assignment (d = 2–5, H = 5–20, weights in [−5,5], test = 5000), write down the reason here.
 

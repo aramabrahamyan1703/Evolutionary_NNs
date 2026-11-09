@@ -4,17 +4,21 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done. Phases match `docs/PROJEC
 
 ## Phase 0: Setup
 - [x] Folder structure, README, requirements, project plan, TODO
-- [ ] Create venv, `pip install -r requirements.txt`, `pip install -e .`
+- [ ] Create venv, `pip install -r requirements-lock.txt`, `pip install -e .` (each team member)
 - [x] `pip freeze > requirements-lock.txt`
-- [ ] First commit and push of the skeleton
+- [x] First commit and push of the skeleton
 - [ ] Read Yao (1999) [25] and the Hansen CMA-ES tutorial, and add notes to `docs/literature/`
 
 ## Phase 1: Foundations
-- [ ] Confirm decisions D1–D7 (generator, noise, budget unit, budget size, H, model selection, seeds)
+- [x] Decisions D1, D2, D7 (generator, noise, seeds) fixed by `data.py`
+- [ ] Confirm decisions D3–D6 (budget unit, budget size, H, model selection)
+- [x] `seeding.py`: separate random streams for weight init and optimisers (D8) + `tests/test_seeding.py`
+- [x] `tests/test_config.py`: config and `data.py` constants must agree
+- [ ] Make `experiment.py` pass config values into `generate_datasets` (then the yaml is the only source)
 - [x] `data.py`: generator with an exposed noise-free `f`, fixed val/test sets (5000 each), nested training sets
 - [x] `tests/test_data.py`: 14 tests covering shapes, nesting, reproducibility, leakage guard, noise floor
 - [x] Visual check in `notebooks/01_data_check.ipynb` (surface, noise, floor, nested sets, report figure)
-- [ ] `mlp.py`: `n_params`, `unpack`, `forward`, `loss`, `loss_and_grad`
+- [ ] `mlp.py`: `n_params`, `unpack`, `forward`, `loss`, `loss_and_grad` (init weights with `rng(seed, INIT)`)
 - [ ] `tests/test_mlp.py`: finite-difference gradient check (rel. error < 1e-6)
 - [ ] `budget.py`: evaluation counter (with `grad_cost`) and `perf_counter` timer
 - [ ] `tests/test_budget.py`: the counter stops exactly at `max_evals`

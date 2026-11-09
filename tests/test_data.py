@@ -111,7 +111,9 @@ def test_generate_datasets_reproducible():
 
 
 def test_no_leakage_train_in_val_or_test():
-    # No training point should appear in the val or test sets, for seeds 0..29.
+    # Sanity check only: seeds 0..29 never equal DATA_SEED and random floats
+    # essentially never repeat, so this cannot fail. The real protection is the
+    # ValueError guard, tested in test_generate_datasets_raises_on_data_seed.
     for seed in range(30):
         d = generate_datasets(seed=seed)
         X_train = d["train"][max(TRAIN_SIZES)][0]      # the full pool
