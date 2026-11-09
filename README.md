@@ -15,7 +15,7 @@ and roadmap, and [`TODO.md`](TODO.md) for current tasks.
 ## Quickstart
 
 ```bash
-python3 -m venv .venv
+python3 -m venv .venv.nosync && ln -s .venv.nosync .venv   # .nosync: iCloud won't sync/hide it (macOS)
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements-lock.txt   # exact versions, so everyone gets the same results

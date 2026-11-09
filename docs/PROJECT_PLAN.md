@@ -148,7 +148,7 @@ Three seeds only: this sets the budget, it is not a result. At n = 25 both metho
 **Tuning winners** (D9, `python scripts/tune.py --jobs 8`, 420 runs = 8 settings + edge extension per method;
 full table in `results/processed/tuning_summary.csv`), frozen in `configs/core.yaml`.
 Settings tried: CMA-ES 9, GA 15, L-BFGS-B 9, SGD 9 (same rule for all; the GA had three parameters at an edge).
-Runs are stamped `fcc4242-dirty` (Phase 3 code uncommitted at the time); the commit that adds this code: _fill in_.
+Runs are stamped `fcc4242-dirty` (Phase 3 code uncommitted at the time); the commit that adds this code: `8ff680e`.
 
 | Method | Winner | Train MSE n=100 / 400 | Sensitivity |
 |---|---|---|---|
