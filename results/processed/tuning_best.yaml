@@ -1,0 +1,13 @@
+cmaes:
+  sigma0: 0.3
+  popsize: null
+ga:
+  mut_sigma: 0.03
+  mut_indpb: 0.1
+  pop_size: 100
+lbfgs:
+  maxcor: 50
+  ftol: 1.0e-12
+sgd:
+  lr: 0.01
+  batch_size: 64

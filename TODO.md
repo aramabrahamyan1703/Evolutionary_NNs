@@ -37,16 +37,19 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done. Phases match `docs/PROJEC
 - [x] `tests/test_optimizers.py` + `tests/test_experiment.py` (128 tests in total)
 - [x] Smoke test and budget pilot use the package optimisers (pilot reproduces §4.1 exactly)
 
-## Phase 3: Pilot and tuning
-- [ ] Convergence curves for all methods incl. GA at 100k (5 seeds); check the GA also plateaus
-- [ ] Tune the EA hyperparameters and L-BFGS restarts with the same effort, on the validation set
-- [ ] Check the number of weights at ±5 bounds
-- [ ] Freeze `configs/core.yaml`
+## Phase 3: Pilot and tuning ✅
+- [x] Tuning protocol D9 (`configs/tuning.yaml`, `scripts/tune.py`, `evonn/tuning.py`, tests)
+- [x] Run the tuning (320 runs + edge-extension round, 100 runs) and pick the winners by training MSE
+- [x] Convergence check with the tuned settings, seeds 100–104, all n (`scripts/check_runs.py`): CMA-ES, L-BFGS-B, SGD plateau; **GA does not (underfits)**
+- [x] Check the number of weights at ±5 bounds (5–17% except GA ~0%)
+- [x] Wall-clock limits per n from serial timing (4 / 4 / 7 / 12 s)
+- [x] Freeze `configs/core.yaml`
 
 ## Phase 4: Core experiment
-- [ ] Full sweep: 4 sizes × methods × 30 seeds (evaluation budget)
-- [ ] Same sweep with the wall-clock budget (or report wall time of the evaluation-budget runs)
+- [ ] Full sweep: 4 sizes × methods × 30 seeds (evaluation budget, `configs/core.yaml`)
+- [ ] Same sweep with the wall-clock budget: `configs/core_wallclock.yaml`, `--jobs 1`
 - [ ] `grad_cost` sensitivity check (1 vs 2 vs 3)
+- [ ] GA long-budget run (confirmed): `configs/core_ga_long.yaml` = core.yaml with `max_evals: 1000000`, GA only, own experiment name; seeds 0–9 (paired with the core runs), all 4 n (~40 runs, a few minutes with `--jobs 8`). Question: once the GA fits as well as the others (train MSE near CMA-ES), does its test-error difference survive?
 - [ ] `scripts/aggregate_results.py`: CSV tables, Wilcoxon + Holm, effect sizes
 - [ ] `scripts/make_figures.py`: test−σ² vs n, train vs n, convergence curves
 

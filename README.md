@@ -33,8 +33,10 @@ python scripts/smoke_test.py --n 25 --max-evals 50000
 Run an experiment (one JSON per run in `results/raw/<experiment>/`; existing runs are skipped):
 
 ```bash
-python scripts/run_experiment.py --jobs 4                    # everything in configs/default.yaml
+python scripts/tune.py --jobs 8                              # Phase 3 tuning (configs/tuning.yaml)
+python scripts/run_experiment.py --jobs 4                    # core sweep: everything in configs/core.yaml (frozen)
 python scripts/run_experiment.py --seeds 2 --methods cmaes   # a subset
+python scripts/check_runs.py results/raw/core_ntrain_sweep   # plateau, weights at bounds, time per run
 python scripts/aggregate_results.py                          # Phase 4 (not implemented yet)
 python scripts/make_figures.py                               # Phase 4 (not implemented yet)
 ```

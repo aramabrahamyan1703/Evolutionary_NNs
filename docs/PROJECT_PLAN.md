@@ -1,18 +1,18 @@
 # Project Plan: Training Neural Networks with Evolutionary Algorithms
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-10_
 
 ## 1. Where we are
 
 | Item | Status |
 |---|---|
 | Repo skeleton, requirements, plan, TODO | ✅ done |
-| Core decisions (D1–D8 below) | ✅ all confirmed (D3–D6 from measurements, see §4.1) |
-| Code (`src/evonn`) | ✅ Phase 1 · ✅ Phase 2: CMA-ES, GA, L-BFGS-B, SGD, experiment runner (128 tests) |
-| Experiments | ⬜ not started |
+| Core decisions (D1–D9 below) | ✅ all confirmed (D3–D6 from measurements, see §4.1) |
+| Code (`src/evonn`) | ✅ Phase 1 · ✅ Phase 2: CMA-ES, GA, L-BFGS-B, SGD, experiment runner · ✅ Phase 3: tuning (138 tests) |
+| Experiments | ✅ tuning + checks (§4.2), settings frozen in `configs/core.yaml` · ⬜ core sweep |
 | Report | ⬜ not started |
 
-**Next step:** Phase 3: tune the GA and CMA-ES with equal effort, check the GA plateaus by 100k, freeze `configs/core.yaml`.
+**Next step:** Phase 4: core sweep with `configs/core.yaml` (evaluation budget, then wall-clock).
 
 ---
 
@@ -115,6 +115,7 @@ final weights, convergence curve, best-validation checkpoint and per-restart res
 | D6 | Final-model selection | Best training loss within budget, same for all methods; per-restart and best-validation results also logged | ✅ | Isolates the optimiser's effect; logging the rest allows a validation-selection analysis later |
 | D7 | Seeds | 30 (run seeds 0–29, `DATA_SEED` = 10000 for val/test) | ✅ | Enough for paired non-parametric tests |
 | D8 | Random streams | Data uses `default_rng(seed)`; weight init and optimisers use `evonn.seeding.rng(seed, stream)` | ✅ | Initial weights never reuse the training data's random numbers |
+| D9 | Tuning protocol | 8 settings per method, tuning seeds 100–104, n ∈ {100, 400}, full budget; winner = lowest mean rank of final **training** MSE (`configs/tuning.yaml`). Amendment: **one** edge-extension round for every method (a winner at the edge of an ordered parameter gets one step past it); winners re-ranked over both rounds and frozen in `configs/core.yaml` (§4.2) | ✅ | Each method must be as good an optimiser as it can be; tuning on validation error would reward settings that win by under-fitting (hidden early stopping). Validation error is recorded for a secondary table |
 
 Whenever you change a default from the assignment (d = 2–5, H = 5–20, weights in [−5,5], test = 5000), write down the reason here.
 
@@ -142,6 +143,45 @@ Whenever you change a default from the assignment (d = 2–5, H = 5–20, weight
 Three seeds only: this sets the budget, it is not a result. At n = 25 both methods interpolate the training set
 (train MSE → 0), so the training curve never flattens there; the budget is set by n ≥ 100.
 
+### 4.2 Tuning and checks (2026-11-10)
+
+**Tuning winners** (D9, `python scripts/tune.py --jobs 8`, 420 runs = 8 settings + edge extension per method;
+full table in `results/processed/tuning_summary.csv`), frozen in `configs/core.yaml`.
+Settings tried: CMA-ES 9, GA 15, L-BFGS-B 9, SGD 9 (same rule for all; the GA had three parameters at an edge).
+Runs are stamped `fcc4242-dirty` (Phase 3 code uncommitted at the time); the commit that adds this code: _fill in_.
+
+| Method | Winner | Train MSE n=100 / 400 | Sensitivity |
+|---|---|---|---|
+| CMA-ES | σ₀ 0.3, popsize default (15) | 0.058 / 0.086 | small: all 9 settings within 0.056–0.060 / 0.084–0.087 |
+| GA | mut_sigma 0.03, mut_indpb 0.1, pop 100 | 0.096 / 0.103 | moderate; winner again at the edge (σ 0.03), not extended further (one round only) |
+| L-BFGS-B | maxcor 50, ftol 1e-12 | 0.051 / 0.083 | negligible |
+| SGD (Adam) | lr 0.01, batch 64 | 0.058 / 0.085 | moderate (lr) |
+
+**Checks with the tuned settings** (`scripts/check_runs.py`; seeds 100–104, all n, 100k evals; medians):
+
+| n | CMA-ES train (drop½) | GA train (drop½) | L-BFGS-B train (drop½) | SGD train (drop½) | weights at ±5: CMA / GA / L-BFGS / SGD |
+|---|---|---|---|---|---|
+| 25 | 0.0000 | 0.053 (21%) | 0.0000 | 0.0000 | 10 / 2 / 5 / 7 % |
+| 100 | 0.058 (7.2%) | 0.096 (9.0%) | 0.051 (0.7%) | 0.058 (3.2%) | 12 / 0 / 17 / 10 % |
+| 400 | 0.086 (1.3%) | 0.103 (7.6%) | 0.083 (0.4%) | 0.085 (0.6%) | 7 / 0 / 10 / 10 % |
+| 1600 | 0.087 (0.3%) | 0.101 (7.1%) | 0.086 (0.2%) | 0.088 (0.0%) | 5 / 0 / 7 / 2 % |
+
+drop½ = relative improvement of the training MSE over the second half of the budget (50k → 100k).
+
+Findings:
+1. **CMA-ES, L-BFGS-B and SGD have levelled off by 100k** (≤ 1.3% at n ≥ 400). At n = 25 all three interpolate the data.
+2. **The GA has not levelled off and underfits**: its training MSE stays above the noise floor (0.09) for n ≥ 100 and
+   still falls 7–9% over the second half. At 100k evaluations a GA comparison measures "fits less", not
+   "generalises better". This is reported as a result (a GA needs more evaluations than CMA-ES in 41 dimensions), and
+   a longer-budget GA run is a Phase 4 secondary analysis.
+3. **Weight bounds act as a regulariser for some methods only**: 5–17% of the weights of CMA-ES, L-BFGS-B and SGD
+   sit at ±5, the GA's (almost) none. Keep this in mind when interpreting test errors.
+
+**Wall-clock limits** (secondary budget, D3): `max_seconds(n)` = median over the 4 methods of the serial (`--jobs 1`)
+wall time of a 100k-evaluation run (seed 100), rounded up: n = 25 → 4 s, 100 → 4 s, 400 → 7 s, 1600 → 12 s.
+Serial times (s), CMA-ES / GA / L-BFGS-B / SGD: n=25 4.6/2.2/3.9/1.1, n=100 4.9/2.5/4.3/2.2, n=400 6.5/4.2/5.9/7.8,
+n=1600 11.8/9.3/10.5/28.2. SGD is the slowest per evaluation at large n (many small Python steps).
+
 ---
 
 ## 5. Roadmap
@@ -159,12 +199,15 @@ Repo, venv, requirements, plan, TODO.
 - CMA-ES (bounded), GA (DEAP), L-BFGS-B with restarts, mini-batch SGD (Adam).
 - Each one returns the same result dict and respects the budget exactly.
 
-### Phase 3: Pilot and tuning
-- Budget (D4) already fixed by the pilot. Choose sensible EA hyperparameters (σ₀, population size, mutation).
-- **Tune every method with the same effort**, ideally on the validation set at one middle n, then freeze the settings.
+### Phase 3: Pilot and tuning ✅
+✅ Tuned every method with the same protocol (D9, `python scripts/tune.py --jobs 8`), checked plateaus, bounds and
+timing (`scripts/check_runs.py`), set the wall-clock limits and froze `configs/core.yaml` (§4.2).
 
 ### Phase 4: Core experiment
-- 4 sizes × 2–4 methods × 30 seeds, both budget types.
+- 4 sizes × 4 methods × 30 seeds with `configs/core.yaml` (evaluation budget), then the same with
+  `configs/core_wallclock.yaml` (per-n time limits, own result folder, run with `--jobs 1`).
+- Secondary (confirmed): GA with a 1M-evaluation budget, seeds 0–9, all n, to see whether its test-error difference survives
+  once it fits as well as the others (§4.2, finding 2).
 - Aggregation, statistical tests, and the main figures.
 
 ### Phase 5: Extensions (pick one or two)
@@ -183,9 +226,9 @@ Report: introduction, method, setup (all decisions and why), results, discussion
 
 | Risk | Mitigation |
 |---|---|
-| The EA doesn't reach a low training loss within the budget, so any "generalisation advantage" is really under-fitting | Always report train and test error together. Check convergence curves. Consider a larger budget |
+| The EA doesn't reach a low training loss within the budget, so any "generalisation advantage" is really under-fitting | Always report train and test error together. Check convergence curves. **Happened for the GA (§4.2)**: report it, plus a longer-budget GA run (Phase 4) |
 | Unequal tuning effort favours one method | Same tuning protocol and budget for every method (Phase 3) |
 | The budget unit is disputed | Report both evaluations and wall-clock, plus the `grad_cost` sensitivity check |
-| Weights saturate at ±5 bounds (tanh saturation) | Log how many weights sit at the bounds. Use a small init scale |
+| Weights saturate at ±5 bounds (tanh saturation) | Log how many weights sit at the bounds (`frac_at_bounds`). Measured: 5–17% for CMA-ES / L-BFGS-B / SGD, ~0% for the GA (§4.2) |
 | Compute time | ~41 params and ≤1600 points is cheap. Parallelise seeds with `joblib`/multiprocessing |
 | Results that aren't reproducible | Seeds everywhere, one JSON row per run, config stored with each result |

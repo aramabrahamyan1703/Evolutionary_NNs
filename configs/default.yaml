@@ -44,6 +44,7 @@ methods:
     mut_indpb: 0.1              # per-weight mutation probability (~4 of 41 weights)
   lbfgs:
     maxcor: 10
+    ftol: null                  # null -> scipy default (2.2e-9)
   sgd:                          # mini-batch baseline; untuned defaults, tuned in Phase 3
     optimizer: adam             # adam | momentum
     lr: 0.01

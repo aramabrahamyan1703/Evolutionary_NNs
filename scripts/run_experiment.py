@@ -1,6 +1,6 @@
 """Run an experiment: every (method, n_train, seed) cell from a config, one JSON per run.
 
-    python scripts/run_experiment.py                               # everything in configs/default.yaml
+    python scripts/run_experiment.py                               # everything in configs/core.yaml
     python scripts/run_experiment.py --seeds 2 --jobs 4            # seeds 0-1, 4 processes
     python scripts/run_experiment.py --methods cmaes --n 25 100    # a subset
 
@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--config", type=Path, default=ROOT / "configs" / "default.yaml")
+    parser.add_argument("--config", type=Path, default=ROOT / "configs" / "core.yaml")
     parser.add_argument("--methods", nargs="+", help="default: experiment.methods in the config")
     parser.add_argument("--n", nargs="+", type=int, help="training sizes (default: data.n_train)")
     parser.add_argument("--seeds", type=int, help="number of seeds (default: experiment.seeds)")

@@ -90,8 +90,10 @@ def run_cell(cfg, method, n, seed):
         max_evals, max_seconds = b["max_evals"], None
     elif b["type"] == "wall_clock":
         max_evals, max_seconds = WALL_CLOCK_EVAL_CAP, b["max_seconds"]
+        if isinstance(max_seconds, dict):           # one limit per training size: {n: seconds}
+            max_seconds = max_seconds.get(n, max_seconds.get(str(n)))
         if not max_seconds:
-            raise ValueError("budget.type = wall_clock needs budget.max_seconds")
+            raise ValueError(f"budget.type = wall_clock needs budget.max_seconds (for n = {n})")
     else:
         raise ValueError(f"unknown budget.type {b['type']!r}")
 

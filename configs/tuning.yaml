@@ -1,0 +1,49 @@
+# Phase 3 tuning (decision D9). Run with: python scripts/tune.py --jobs 8
+#
+# Rules, the same for every method:
+#   - 8 settings per method (the grid below), everything else from the base config
+#   - separate tuning seeds (100-104), never the evaluation seeds 0-29
+#   - n_train in {100, 400}, full budget from the base config
+#   - winner = lowest mean rank of the final TRAINING MSE over the (seed, n) cells:
+#     each method should be as good an optimiser as it can be; validation error is
+#     recorded but not used, so no setting wins by under-fitting
+
+base_config: configs/default.yaml
+seeds: [100, 101, 102, 103, 104]
+n_train: [100, 400]
+
+grids:
+  cmaes:
+    sigma0: [0.1, 0.3, 0.5, 1.0]
+    popsize: [null, 50]              # null -> cma default 4 + 3 ln(41) = 15
+  ga:
+    mut_sigma: [0.1, 0.3]
+    mut_indpb: [0.1, 0.3]
+    pop_size: [50, 100]
+  lbfgs:
+    maxcor: [5, 10, 20, 50]
+    ftol: [null, 1.0e-12]
+  sgd:
+    lr: [0.001, 0.003, 0.01, 0.03]
+    batch_size: [16, 64]
+
+# Edge extension (amendment to D9), exactly ONE extra round, decided before seeing
+# its results: where a round-1 winner sits at the edge of an ORDERED parameter,
+# add one step past that edge (same step factor as the grid), crossed with the
+# winner's other values. Categorical parameters (ftol) are not extended. The winner
+# is then re-ranked over round 1 + this round together. Settings already run are
+# skipped (same setting id, same folder), so keys must be in the same order as in grids.
+extension:
+  cmaes:                             # winner sigma0 0.3 (interior), popsize default=15 (low edge)
+    sigma0: [0.3]
+    popsize: [8, null]
+  ga:                                # winner 0.1 / 0.1 / 100: all three at an edge
+    mut_sigma: [0.03, 0.1]
+    mut_indpb: [0.03, 0.1]
+    pop_size: [100, 200]
+  lbfgs:                             # winner maxcor 50 (high edge), ftol categorical
+    maxcor: [50, 100]
+    ftol: [1.0e-12]
+  sgd:                               # winner lr 0.01 (interior), batch 64 (high edge)
+    lr: [0.01]
+    batch_size: [64, 128]

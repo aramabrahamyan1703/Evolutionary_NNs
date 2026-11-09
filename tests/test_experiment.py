@@ -78,6 +78,16 @@ def test_wall_clock_budget():
     assert r["curve"][-1]["train_mse"] == pytest.approx(r["final"]["train_mse"])
 
 
+def test_wall_clock_budget_per_n():
+    cfg = _cfg()
+    cfg["budget"]["type"] = "wall_clock"
+    cfg["budget"]["max_seconds"] = {25: 0.1, 100: 0.3}
+    assert run_cell(cfg, "cmaes", n=25, seed=0)["budget"]["max_seconds"] == 0.1
+    cfg["budget"]["max_seconds"] = {100: 0.3}
+    with pytest.raises(ValueError):                    # no limit for this n
+        run_cell(cfg, "cmaes", n=25, seed=0)
+
+
 def test_unknown_method_raises():
     with pytest.raises(ValueError):
         run_cell(_cfg(), "no_such_method", n=25, seed=0)
