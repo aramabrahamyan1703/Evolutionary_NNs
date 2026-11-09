@@ -1,5 +1,5 @@
 # Default experiment configuration. Copy and edit for new experiments.
-# All values here are PROPOSED defaults - see docs/PROJECT_PLAN.md "Decisions log".
+# Confirmed decisions D1-D8 - see docs/PROJECT_PLAN.md "Decisions log".
 
 experiment:
   name: core_ntrain_sweep
@@ -24,7 +24,7 @@ model:
 
 budget:
   type: evaluations             # evaluations | wall_clock
-  max_evals: 20000              # full-training-set loss evaluations
+  max_evals: 100000             # full-training-set loss evaluations (D4: see pilot in PROJECT_PLAN 4.1)
   grad_cost: 2                  # how many evals one (loss + gradient) call counts as - see D3
 
 methods:
