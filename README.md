@@ -23,6 +23,13 @@ pip install -e .            # makes `import evonn` work from scripts/, tests/, n
 pytest                      # run the tests
 ```
 
+Smoke test (CMA-ES vs L-BFGS-B on one training set, writes a convergence figure to `figures/`):
+
+```bash
+python scripts/smoke_test.py                 # seed 0, n = 100
+python scripts/smoke_test.py --n 25 --max-evals 50000
+```
+
 Run an experiment (once implemented):
 
 ```bash
