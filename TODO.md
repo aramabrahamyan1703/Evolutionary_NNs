@@ -46,12 +46,12 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done. Phases match `docs/PROJEC
 - [x] Freeze `configs/core.yaml`
 
 ## Phase 4: Core experiment
-- [ ] Full sweep: 4 sizes × methods × 30 seeds (evaluation budget, `configs/core.yaml`)
-- [ ] Same sweep with the wall-clock budget: `configs/core_wallclock.yaml`, `--jobs 1`
+- [x] Full sweep: 4 sizes × methods × 30 seeds (evaluation budget, `configs/core.yaml`)
+- [x] Same sweep with the wall-clock budget: `configs/core_wallclock.yaml`, `--jobs 1` — same conclusions as eval-budget, D3 validated
 - [ ] `grad_cost` sensitivity check (1 vs 2 vs 3)
-- [ ] GA long-budget run (confirmed): `configs/core_ga_long.yaml` = core.yaml with `max_evals: 1000000`, GA only, own experiment name; seeds 0–9 (paired with the core runs), all 4 n (~40 runs, a few minutes with `--jobs 8`). Question: once the GA fits as well as the others (train MSE near CMA-ES), does its test-error difference survive?
-- [ ] `scripts/aggregate_results.py`: CSV tables, Wilcoxon + Holm, effect sizes
-- [ ] `scripts/make_figures.py`: test−σ² vs n, train vs n, convergence curves
+- [x] GA long-budget run: `configs/core_ga_long.yaml`, seeds 0–9, all n — GA converges at n≥400 with 1M evals; advantage at n=100 holds
+- [x] `scripts/aggregate_results.py`: CSV tables, Wilcoxon + Holm, effect sizes
+- [x] `scripts/make_figures.py`: test−σ² vs n, train vs n, convergence curves, gap, bounds
 
 ## Phase 5: Extensions (choose)
 - [ ] E1: evolve the hidden size H with validation fitness. Does H track n?
