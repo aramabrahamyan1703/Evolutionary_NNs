@@ -9,10 +9,10 @@ _Last updated: 2026-11-10_
 | Repo skeleton, requirements, plan, TODO | ✅ done |
 | Core decisions (D1–D9 below) | ✅ all confirmed (D3–D6 from measurements, see §4.1) |
 | Code (`src/evonn`) | ✅ Phase 1 · ✅ Phase 2: CMA-ES, GA, L-BFGS-B, SGD, experiment runner · ✅ Phase 3: tuning (138 tests) |
-| Experiments | ✅ tuning + checks (§4.2), settings frozen in `configs/core.yaml` · ⬜ core sweep |
-| Report | ⬜ not started |
+| Experiments | ✅ tuning + checks (§4.2), settings frozen in `configs/core.yaml` · ✅ core sweep (480 runs, 30 seeds) · ✅ aggregate + figures |
+| Report | 🟡 in progress (§1–§6 drafted in Overleaf) |
 
-**Next step:** Phase 4: core sweep with `configs/core.yaml` (evaluation budget, then wall-clock).
+**Next step:** Phase 4 secondary analyses (wall-clock sweep, GA long run, grad_cost sensitivity) + report finalisation.
 
 ---
 
