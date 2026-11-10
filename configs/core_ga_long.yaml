@@ -1,0 +1,55 @@
+# GA long-budget run (Phase 4 secondary analysis).
+# Same as configs/core.yaml but with 1M evaluations, GA only, seeds 0-9.
+# Question: once the GA fits as well as CMA-ES (train MSE near noise floor),
+# does its test-error advantage at n=100 survive?
+# Run with: python scripts/run_experiment.py --config configs/core_ga_long.yaml --jobs 8
+
+experiment:
+  name: core_ga_long
+  seeds: 10                     # seeds 0-9, paired with the core runs
+  methods: [ga]
+  output_dir: results/raw
+
+data:
+  input_dim: 2
+  noise_std: 0.3
+  n_train: [25, 100, 400, 1600]
+  n_val: 5000
+  n_test: 5000
+  data_seed: 10000
+
+model:
+  hidden: 10
+  activation: tanh
+  weight_bounds: [-5.0, 5.0]
+  init: uniform
+  init_scale: 0.5
+
+budget:
+  type: evaluations
+  max_evals: 1000000            # 10x the core budget
+  grad_cost: 2
+  max_seconds:
+
+methods:
+  cmaes:
+    sigma0: 0.3
+    popsize: null
+  ga:
+    pop_size: 100
+    elitism: 1
+    tournament_size: 3
+    cx_prob: 0.7
+    cx_alpha: 0.5
+    mut_prob: 0.2
+    mut_sigma: 0.03
+    mut_indpb: 0.1
+  lbfgs:
+    maxcor: 50
+    ftol: 1.0e-12
+  sgd:
+    optimizer: adam
+    lr: 0.01
+    momentum: 0.9
+    batch_size: 64
+    eval_every: 5
