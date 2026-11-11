@@ -54,11 +54,13 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done. Phases match `docs/PROJEC
 - [x] `scripts/compare_runs.py`: secondary experiments vs the core sweep
 - [x] `scripts/make_figures.py`: test (clean) and train vs n, gap, bounds, convergence curves
 
-## Phase 5: Extensions (choose)
-- [ ] E1: evolve the hidden size H with validation fitness. Does H track n?
-- [ ] E2: evolve weight decay λ
-- [ ] E3: noise sweep / d=5 robustness check
-- [ ] E4: sharpness of the minima found
+## Phase 5: Extensions ✅
+- [x] 5.1 Fair early stopping: selection set of n points (D10), dense checkpoints (`configs/p5_selection.yaml`): the GA's advantage disappears
+- [x] 5.2 (E4) Sharpness at matched training error (D11, `scripts/sharpness.py`): GA flatter than L-BFGS-B, equal to SGD; flatness does not predict test error (except n = 25)
+- [x] 5.3 (E1, redesigned) H ∈ {2..20} and early stopping chosen on the selection set for every method (`scripts/arch.py`): same ranking; GA picks the largest H
+- [x] Phase 5 figures (`scripts/make_figures_p5.py`: fig5–fig7) and PROJECT_PLAN §4.4
+- [ ] (not planned) E2: evolve weight decay λ
+- [ ] (not planned) E3: noise sweep / d=5 robustness check
 
 ## Phase 6: Report
 - [ ] Outline in `report/`

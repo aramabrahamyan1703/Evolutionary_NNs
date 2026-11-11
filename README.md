@@ -40,6 +40,7 @@ python scripts/check_runs.py results/raw/core_ntrain_sweep   # plateau, weights 
 python scripts/aggregate_results.py                          # JSONs -> results/processed/<experiment>/*.csv + Wilcoxon tests
 python scripts/make_figures.py                               # report figures -> figures/
 python scripts/compare_runs.py configs/core_gradcost1.yaml   # a secondary experiment vs the core sweep
+python scripts/arch.py --jobs 8                               # Phase 5 (see README.txt for all Phase 5 steps)
 ```
 
 ## Repository layout

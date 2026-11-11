@@ -31,7 +31,7 @@ SETUP
 
     pytest
 
-    Expected output: 151 passed, 1 skipped (all green).
+    Expected output: 169 passed, 1 skipped (all green).
 
 ================================================================
 REPRODUCING THE RESULTS
@@ -92,6 +92,17 @@ significant?) to results/processed/<experiment>/.
   core_gradcost1.yaml   grad_cost = 1 instead of 2 (L-BFGS-B and SGD only; CMA-ES
   core_gradcost3.yaml   and the GA never use gradients); 240 runs each, --jobs 8
 
+--- Phase 5: fair model selection (selection set of n points per run) ---
+
+    python scripts/run_experiment.py  --config configs/p5_selection.yaml --jobs 8   # 480 runs, ~11 min
+    python scripts/aggregate_results.py --config configs/p5_selection.yaml   # final networks
+    python scripts/aggregate_results.py --config configs/p5_selection.yaml --selection best_select
+    python scripts/sharpness.py --jobs 8          # sharpness of final / early-stopped / matched networks
+    python scripts/arch.py --jobs 8               # every H in {2..20}: 2400 more runs, ~1 h
+    python scripts/make_figures_p5.py             # fig5-fig7
+
+Outputs: results/processed/p5_selection/ and results/processed/p5_arch/.
+
 --- Smoke test (single run, writes a convergence figure) ---
 
     python scripts/smoke_test.py                  # seed 0, n=100
@@ -111,8 +122,10 @@ src/evonn/        installable Python package
   baselines/      L-BFGS-B (lbfgs.py) and SGD/Adam (sgd.py)
   experiment.py   runs one (method, n_train, seed) cell
   analysis.py     tables, paired Wilcoxon + Holm, Cliff's delta, comparisons
+  sharpness.py    Hessian top eigenvalue, perturbation sharpness (Phase 5)
+  arch.py         choosing H and early stopping on the selection set (Phase 5)
 scripts/          CLI entry points
-tests/            pytest suite (151 tests)
+tests/            pytest suite (169 tests)
 results/raw/      per-run JSON files (gitignored, regenerable)
 results/processed/ aggregated CSVs, one folder per experiment (committed)
 figures/          report figures (committed)

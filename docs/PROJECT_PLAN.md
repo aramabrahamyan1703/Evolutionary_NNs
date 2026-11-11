@@ -7,12 +7,12 @@ _Last updated: 2026-11-11_
 | Item | Status |
 |---|---|
 | Repo skeleton, requirements, plan, TODO | ✅ done |
-| Core decisions (D1–D9 below) | ✅ all confirmed (D3–D6 from measurements, see §4.1) |
-| Code (`src/evonn`) | ✅ Phase 1 · ✅ Phase 2: CMA-ES, GA, L-BFGS-B, SGD, experiment runner · ✅ Phase 3: tuning · ✅ Phase 4: analysis, aggregation, comparisons, figures (151 tests) |
-| Experiments | ✅ core sweep · ✅ wall-clock sweep · ✅ GA long run (1M evals) · ✅ `grad_cost` 1 / 3 · ✅ tables + figures (§4.3) |
+| Core decisions (D1–D11 below) | ✅ all confirmed (D3–D6 from measurements, see §4.1) |
+| Code (`src/evonn`) | ✅ Phase 1 · ✅ Phase 2: CMA-ES, GA, L-BFGS-B, SGD, experiment runner · ✅ Phase 3: tuning · ✅ Phase 4: analysis, aggregation, comparisons, figures · ✅ Phase 5: selection sets, sharpness, H selection (169 tests) |
+| Experiments | ✅ Phase 4: core, wall-clock, GA long run, `grad_cost` 1 / 3 (§4.3) · ✅ Phase 5: fair early stopping, sharpness, H selection (§4.4) |
 | Report | 🟡 in progress (§1–§6 drafted in Overleaf) |
 
-**Next step:** choose a Phase 5 extension (or none), then the report (Phase 6). Report figures to revisit: Fig 2
+**Next step:** the report (Phase 6), with §4.3 and §4.4 as the results. Report figures to revisit: Fig 2
 (linear y: n = 25 flattens the rest) and Fig 1b (log axis down to 1e-13 hides the GA's higher training MSE at n ≥ 100).
 
 ---
@@ -117,6 +117,8 @@ final weights, convergence curve, best-validation checkpoint and per-restart res
 | D7 | Seeds | 30 (run seeds 0–29, `DATA_SEED` = 10000 for val/test) | ✅ | Enough for paired non-parametric tests |
 | D8 | Random streams | Data uses `default_rng(seed)`; weight init and optimisers use `evonn.seeding.rng(seed, stream)` | ✅ | Initial weights never reuse the training data's random numbers |
 | D9 | Tuning protocol | 8 settings per method, tuning seeds 100–104, n ∈ {100, 400}, full budget; winner = lowest mean rank of final **training** MSE (`configs/tuning.yaml`). Amendment: **one** edge-extension round for every method (a winner at the edge of an ordered parameter gets one step past it); winners re-ranked over both rounds and frozen in `configs/core.yaml` (§4.2) | ✅ | Each method must be as good an optimiser as it can be; tuning on validation error would reward settings that win by under-fitting (hidden early stopping). Validation error is recorded for a secondary table |
+| D10 | Selection set (Phase 5) | Per run, n points (as many as the training set) from their own random stream (`SELECTION`), nested over n; picks the early-stopping checkpoint (5.1) and H (5.3), the same way for every method | ✅ | A realistic validation set: the 5000-point one is far larger than the training set and remains a measurement only. Selection only chooses among networks fitted on the training set |
+| D11 | Sharpness measure (Phase 5.2) | Mean training-loss increase under 200 random perturbations of norm 1% of ‖θ‖ (primary, scale-aware); top Hessian eigenvalue (secondary, with ‖θ‖ and share at bounds next to it); methods compared at the GA's training MSE | ✅ | The Hessian eigenvalue grows with the weight scale, and the non-GA methods have larger weights; comparing at equal training error removes "how far training went" |
 
 Whenever you change a default from the assignment (d = 2–5, H = 5–20, weights in [−5,5], test = 5000), write down the reason here.
 
@@ -245,6 +247,68 @@ by construction; 30 paired seeds):
 - 19 of 24 pair verdicts unchanged and the ranking unchanged except at n = 400, where the GA moves from last (tied
   with L-BFGS-B) to level with CMA-ES and SGD, ahead of L-BFGS-B. Same picture as the GA long run: more GA evaluations → the GA catches up at larger n.
 
+### 4.4 Phase 5 results (2026-11-11)
+
+Runs at commits `ed67e33` (`p5_selection`) and `e0294b4` (`p5_selection_H*`), all clean. Tables in
+`results/processed/p5_selection/` and `results/processed/p5_arch/`; figures 5–7.
+
+**5.1 Fair early stopping** (`configs/p5_selection.yaml`: the core sweep plus a selection set of n points (D10)
+and 10 checkpoints per decade; final networks identical to the core sweep in 480/480 runs). Median clean test MSE
+of the checkpoint with the lowest selection MSE (`*_best_select.csv`, Fig 5):
+
+| n | CMA-ES | GA | L-BFGS-B | SGD |
+|---|---|---|---|---|
+| 25 | **0.129** | **0.116** | **0.117** | **0.148** |
+| 100 | **0.032** | **0.031** | **0.024** | **0.027** |
+| 400 | **0.0052** | 0.014 | **0.0057** | 0.0065 |
+| 1600 | **0.0012** | 0.012 | **0.0013** | 0.0018 |
+
+(bold in both §4.4 tables: not significantly worse than the best method at that n, paired Wilcoxon, Holm over 24 tests)
+
+- The GA's small-n advantage disappears: no significant difference at n = 25; at n = 100 no method differs from
+  the best (L-BFGS-B), but SGD beats the GA (p_holm = 0.011); at n ≥ 400 the GA is worst (δ ≥ 0.95).
+- The early-stopping point (median evaluations): L-BFGS-B 100–500, SGD 1.4k–4k, CMA-ES 4k–20k, GA 20k at n = 25 and
+  the full 100k at n ≥ 100 (it never starts to overfit within the budget).
+
+**5.2 Sharpness** (D11, `sharpness.csv`, Fig 6). At the GA's training MSE (same seed):
+- perturbation sharpness (median ×1e-3): L-BFGS-B 4.2–5.5, CMA-ES 2.6–3.1, GA 1.9–2.4, SGD 2.0–2.3. The GA is flatter
+  than L-BFGS-B at every n (p_holm ≤ 4e-5) and than CMA-ES at n = 100 and 1600; GA and SGD are about equal (SGD
+  slightly flatter at n = 400, p_holm = 0.04).
+- Flatness does not predict generalisation: at n ≥ 100 the sharpest method (L-BFGS-B) has the lowest test MSE of the
+  matched networks (e.g. 0.010 vs GA 0.014 at n = 400); only at n = 25 do flatter networks (GA, SGD) also generalise
+  better (GA 0.149 vs L-BFGS-B 0.237).
+- The final networks differ much more (GA 0.002 vs 0.005–0.044; ‖θ‖ 7–9 vs 13–20), but that is training progress:
+  the others keep fitting the noise.
+
+**5.3 H chosen on the selection set** (`configs/p5_arch.yaml`, `scripts/arch.py`; H ∈ {2, 4, 6, 10, 15, 20}, full
+budget per H, (H, checkpoint) with the lowest selection MSE; 2880 runs). *Changed from the planned E1* ("evolve H with
+validation fitness"): if the EA's fitness is the selection error, the selection set becomes its training data,
+which is unfair to methods that fit on the training set; and a grid over ≤ 20 values of H is exhaustive, so an EA over
+H could only tie. Instead every method gets the same capacity and early-stopping selection.
+
+| n | CMA-ES test / H | GA test / H | L-BFGS-B test / H | SGD test / H |
+|---|---|---|---|---|
+| 25 | **0.100** / 10 | **0.102** / 15 | **0.119** / 10 | **0.106** / 10 |
+| 100 | 0.024 / 10 | 0.026 / 12.5 | **0.019** / 6 | 0.024 / 6 |
+| 400 | **0.0049** / 10 | 0.0115 / 15 | **0.0046** / 8 | 0.0057 / 6 |
+| 1600 | **0.0012** / 10 | 0.0087 / 20 | **0.0013** / 10 | 0.0017 / 10 |
+
+(median clean test MSE / median chosen H; `medians_chosen.csv`, `chosen_h.csv`, Fig 7)
+- n = 25: no significant differences. n = 100: L-BFGS-B best (beats CMA-ES, GA, SGD; p_holm ≤ 0.031). n ≥ 400: the
+  GA is worst (δ ≥ 0.87), CMA-ES and L-BFGS-B best.
+- Choosing H improves on fixed H = 10 in 9 of 16 (method, n) cells and is never significantly worse
+  (`compare_vs_fixed.csv`); most for the GA at large n (0.012 → 0.0087 at n = 1600). The ranking does not change.
+- The chosen H does not track n cleanly: a selection set of n points is noisy (wide IQRs). The GA picks the
+  largest networks (median 15–20 at n ≥ 400): extra capacity compensates for its underfitting.
+- Optimiser settings were tuned at H = 10 (D9) and reused for every H.
+
+**Phase 5 conclusion (RQ1/H1).** Once every method gets the same realistic validation data for early stopping and
+for choosing H, the EAs do not produce networks that generalise better. CMA-ES is on par with the gradient methods
+(behind L-BFGS-B only at n = 100 in 5.3). The GA is on par only at n = 25, significantly behind a gradient
+method at n = 100 (SGD in 5.1, L-BFGS-B in 5.3) and clearly worse at n ≥ 400; the other methods reach their
+early-stopping point with 5–1000× fewer evaluations than the GA. The EAs' small-n advantage in the core sweep (§4.3)
+is implicit early stopping (they fit slowly), and the flat-minima mechanism of H1 only shows at n = 25. H1 is not supported as a property of EAs.
+
 ---
 
 ## 5. Roadmap
@@ -270,12 +334,10 @@ timing (`scripts/check_runs.py`), set the wall-clock limits and froze `configs/c
 Core sweep, wall-clock sweep, GA long run and `grad_cost` 1 / 3 run and analysed (`aggregate_results.py`,
 `compare_runs.py`, `make_figures.py`); results in §4.3.
 
-### Phase 5: Extensions (pick one or two)
-- **E1:** Evolve H (number of hidden units) together with the weights, using **validation error** as fitness.
-  Does the chosen H grow sensibly with n?
-- **E2:** Evolve the weight-decay coefficient λ. Compare with L-BFGS where λ is picked by a validation grid.
-- **E3:** Noise sweep (σ as a second factor) and a robustness check at d = 5.
-- **E4:** A sharpness analysis of the minima found (Hessian top eigenvalue, or loss increase under random perturbation).
+### Phase 5: Extensions ✅
+- 5.1 Fair early stopping on a small selection set (D10), 5.2 sharpness at matched training error (E4, D11),
+  5.3 H and early stopping chosen on the selection set for every method (E1, redesigned). Results in §4.4.
+- Not done: E2 (evolve weight decay λ), E3 (noise sweep / d = 5).
 
 ### Phase 6: Write-up
 Report: introduction, method, setup (all decisions and why), results, discussion of the hypothesis, limitations.
