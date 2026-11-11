@@ -1,0 +1,162 @@
+"""Phase 4 analysis: collect run JSONs into tables and compare methods / experiments.
+
+    df  = load_runs(results/raw/<experiment>)      # one row per run
+    med = make_medians(df)                         # median + IQR per (method, n)
+    wil = make_wilcoxon(df)                        # every method pair at every n, Holm-corrected
+
+Runs are always paired by seed: the same seed means the same training set and
+the same initial weights, for every method and every experiment.
+"""
+
+import json
+from itertools import combinations
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from scipy.stats import wilcoxon
+
+ROOT = Path(__file__).resolve().parents[2]
+PROCESSED = ROOT / "results" / "processed"
+
+MEDIAN_METRICS = ["train_mse", "test_mse", "test_mse_clean", "excess_test", "gap",
+                  "frac_at_bounds", "evals_used", "wall_time"]
+
+
+def processed_dir(experiment):
+    """Output folder of one experiment: results/processed/<experiment>/."""
+    return PROCESSED / experiment
+
+
+def cliffs_delta(x, y):
+    """Cliff's delta effect size: P(x > y) - P(x < y), in [-1, 1]."""
+    x, y = np.asarray(x), np.asarray(y)
+    greater = np.sum(x[:, None] > y[None, :])
+    less = np.sum(x[:, None] < y[None, :])
+    return float((greater - less) / (len(x) * len(y)))
+
+
+def holm_correction(p_values):
+    """Holm-Bonferroni adjusted p-values (same order as the input)."""
+    p = np.asarray(p_values, dtype=float)
+    n = len(p)
+    order = np.argsort(p)
+    adjusted = np.empty(n)
+    running = 0.0
+    for rank, idx in enumerate(order):
+        running = max(running, min(1.0, p[idx] * (n - rank)))   # monotone in the sorted order
+        adjusted[idx] = running
+    return adjusted
+
+
+def load_runs(raw_dir):
+    """One row per run JSON in raw_dir: identifiers, budget used, final metrics."""
+    rows = []
+    for f in sorted(Path(raw_dir).glob("*.json")):
+        d = json.loads(f.read_text())
+        rows.append({"method": d["meta"]["method"], "n_train": d["meta"]["n_train"],
+                     "seed": d["meta"]["seed"], "evals_used": d["budget"]["evals_used"],
+                     "wall_time": d["budget"]["wall_time"], "git_commit": d["meta"]["git_commit"],
+                     **d["final"]})
+    if not rows:
+        raise FileNotFoundError(f"no run JSONs in {raw_dir}")
+    return pd.DataFrame(rows).sort_values(["method", "n_train", "seed"]).reset_index(drop=True)
+
+
+def make_medians(df, metrics=MEDIAN_METRICS):
+    """Median and quartiles of every metric per (method, n_train)."""
+    rows = []
+    for (method, n), g in df.groupby(["method", "n_train"]):
+        row = {"method": method, "n_train": n, "runs": len(g)}
+        for m in metrics:
+            row[f"{m}_median"] = g[m].median()
+            row[f"{m}_q25"] = g[m].quantile(0.25)
+            row[f"{m}_q75"] = g[m].quantile(0.75)
+        rows.append(row)
+    return pd.DataFrame(rows).sort_values(["n_train", "method"]).reset_index(drop=True)
+
+
+def paired(df, metric, n, a, b):
+    """Values of methods a and b at size n, matched by seed. Raises if the seeds differ."""
+    sub = df[df["n_train"] == n]
+    xa = sub[sub["method"] == a].set_index("seed")[metric]
+    xb = sub[sub["method"] == b].set_index("seed")[metric]
+    if set(xa.index) != set(xb.index):
+        raise ValueError(f"n={n}: {a} and {b} have different seeds "
+                         f"({sorted(set(xa.index) ^ set(xb.index))} not in both)")
+    seeds = sorted(xa.index)
+    return xa.loc[seeds].to_numpy(), xb.loc[seeds].to_numpy()
+
+
+def _wilcoxon_p(x, y):
+    if np.all(x == y):
+        return np.nan, 1.0
+    stat, p = wilcoxon(x, y, alternative="two-sided")
+    return float(stat), float(p)
+
+
+def make_wilcoxon(df, metric="test_mse_clean"):
+    """Paired Wilcoxon signed-rank test for every method pair at every n, Holm-corrected
+    over all tests in the table; Cliff's delta > 0 means method_a has the larger values.
+    Empty table if there is only one method."""
+    methods = sorted(df["method"].unique())
+    rows = []
+    for n in sorted(df["n_train"].unique()):
+        for a, b in combinations(methods, 2):
+            x, y = paired(df, metric, n, a, b)
+            stat, p = _wilcoxon_p(x, y)
+            rows.append({"n_train": n, "method_a": a, "method_b": b, "runs": len(x),
+                         "median_a": float(np.median(x)), "median_b": float(np.median(y)),
+                         "median_diff": float(np.median(x) - np.median(y)),
+                         "cliffs_delta": cliffs_delta(x, y), "W": stat, "p_raw": p})
+    result = pd.DataFrame(rows, columns=["n_train", "method_a", "method_b", "runs", "median_a", "median_b",
+                                         "median_diff", "cliffs_delta", "W", "p_raw"])
+    result["p_holm"] = holm_correction(result["p_raw"]) if len(result) else []
+    result["significant"] = result["p_holm"] < 0.05
+    return result
+
+
+def combine_with_base(other, base):
+    """`other` plus the base runs of every method missing from `other` (used when an
+    experiment reruns only some methods, e.g. grad_cost only affects gradient methods)."""
+    missing = sorted(set(base["method"]) - set(other["method"]))
+    keep = base[base["method"].isin(missing) & base["n_train"].isin(other["n_train"].unique())]
+    return pd.concat([other, keep], ignore_index=True), missing
+
+
+def compare_methods(base, other, metrics=("train_mse", "test_mse_clean"), test_metric="test_mse_clean"):
+    """Every (method, n) of `other` against the same method in `base`, paired by seed."""
+    rows = []
+    for (method, n), g in other.groupby(["method", "n_train"]):
+        b = base[(base["method"] == method) & (base["n_train"] == n)].set_index("seed")
+        o = g.set_index("seed")
+        if set(b.index) != set(o.index):
+            raise ValueError(f"{method} n={n}: base and other have different seeds")
+        seeds = sorted(o.index)
+        row = {"method": method, "n_train": n, "runs": len(seeds)}
+        for m in metrics:
+            row[f"{m}_base"] = b.loc[seeds, m].median()
+            row[f"{m}_other"] = o.loc[seeds, m].median()
+        _, row["p_raw"] = _wilcoxon_p(o.loc[seeds, test_metric].to_numpy(), b.loc[seeds, test_metric].to_numpy())
+        row["cliffs_delta"] = cliffs_delta(o.loc[seeds, test_metric], b.loc[seeds, test_metric])
+        rows.append(row)
+    result = pd.DataFrame(rows)
+    result["p_holm"] = holm_correction(result["p_raw"])
+    return result
+
+
+def compare_pairs(base_wil, other_wil):
+    """Significant method pairs in base vs other: same verdict, or changed?"""
+    keys = ["n_train", "method_a", "method_b"]
+    cols = keys + ["median_diff", "cliffs_delta", "p_holm", "significant"]
+    m = base_wil[cols].merge(other_wil[cols], on=keys, suffixes=("_base", "_other"))
+    sign = lambda s: np.sign(s).astype(int)
+    m["same_verdict"] = (m["significant_base"] == m["significant_other"]) & (
+        ~m["significant_base"] | (sign(m["median_diff_base"]) == sign(m["median_diff_other"])))
+    return m
+
+
+def rankings(df, metric="test_mse_clean"):
+    """Methods ordered by median metric (best first) at every n: {n: [method, ...]}."""
+    med = df.groupby(["n_train", "method"])[metric].median()
+    return {int(n): list(med.loc[n].sort_values().index) for n in sorted(df["n_train"].unique())}

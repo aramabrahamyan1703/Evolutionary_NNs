@@ -25,3 +25,10 @@ METHODS = {
 }
 
 LABELS = {"cmaes": "CMA-ES", "ga": "GA", "lbfgs": "L-BFGS-B", "sgd": "SGD"}
+
+# plot style per method, shared by every figure: categorical colour slots 1-4 plus a
+# line style and marker each, so methods differ by more than colour
+STYLES = {"cmaes": dict(color="#2a78d6", linestyle="-", marker="o"),
+          "lbfgs": dict(color="#eb6834", linestyle="--", marker="^"),
+          "ga": dict(color="#1baf7a", linestyle="-.", marker="s"),
+          "sgd": dict(color="#eda100", linestyle=(0, (5, 1, 1, 1, 1, 1)), marker="D")}

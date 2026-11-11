@@ -6,8 +6,8 @@ Computational Intelligence (CI-MAI), UPC, November 2026
 REQUIREMENTS
 ================================================================
 
-Python 3.11 or later. All dependencies are listed in requirements-lock.txt.
-Tested on macOS 14 and Ubuntu 22.04.
+Python 3.11 or later (pyproject.toml). All dependencies are pinned in
+requirements-lock.txt. Results were produced with Python 3.14.0 on macOS.
 
 ================================================================
 SETUP
@@ -22,6 +22,7 @@ SETUP
 
     python3 -m venv .venv
     source .venv/bin/activate          # on Windows: .venv\Scripts\activate
+    # macOS with an iCloud-synced folder: use .venv.nosync and link it, see README.md
     pip install --upgrade pip
     pip install -r requirements-lock.txt
     pip install -e .
@@ -30,15 +31,16 @@ SETUP
 
     pytest
 
-    Expected output: 139 passed, 1 skipped (all green).
+    Expected output: 151 passed, 1 skipped (all green).
 
 ================================================================
 REPRODUCING THE RESULTS
 ================================================================
 
 All results in the paper come from configs/core.yaml (evaluation budget).
-The raw JSON files are gitignored (regenerable); the aggregated CSVs and
-figures are committed to results/processed/ and figures/.
+The raw JSON files are gitignored (regenerable); the aggregated CSVs are
+committed to results/processed/<experiment>/ (one folder per experiment) and
+the figures to figures/.
 
 --- Core experiment (480 runs, ~17 min with 4 cores) ---
 
@@ -49,14 +51,15 @@ Existing files are skipped, so an interrupted run can be restarted as-is.
 
 --- Aggregate results and run statistical tests ---
 
-    python scripts/aggregate_results.py
+    python scripts/aggregate_results.py                  # default: configs/core.yaml
 
-Writes three files to results/processed/:
+Writes three files to results/processed/core_ntrain_sweep/:
   summary.csv   — one row per run (480 rows)
   medians.csv   — median + IQR per (method, n_train)
-  wilcoxon.csv  — paired Wilcoxon signed-rank + Holm correction + Cliff's delta
+  wilcoxon.csv  — paired Wilcoxon signed-rank (runs matched by seed) for every
+                  method pair at every n, Holm correction, Cliff's delta
 
---- Generate report figures ---
+--- Generate report figures (needs the aggregated core sweep) ---
 
     python scripts/make_figures.py
 
@@ -70,18 +73,24 @@ Writes four figures to figures/:
 SECONDARY ANALYSES
 ================================================================
 
---- Wall-clock budget sweep (480 runs, ~90 min, single process) ---
+Each secondary experiment has its own config, raw folder and processed folder.
+Run it, aggregate it, then compare it with the core sweep (runs matched by seed;
+needs the core sweep's raw results):
 
-    python scripts/run_experiment.py --config configs/core_wallclock.yaml --jobs 1
+    python scripts/run_experiment.py  --config configs/<experiment>.yaml --jobs <j>
+    python scripts/aggregate_results.py --config configs/<experiment>.yaml
+    python scripts/compare_runs.py configs/<experiment>.yaml
 
-Note: must be run with --jobs 1 so wall-clock times are not contaminated
-by parallelism. Results go to results/raw/core_ntrain_sweep_wallclock/.
+compare_runs.py writes compare_methods.csv (each method vs itself in the core
+sweep) and compare_pairs.csv (does each significant method pair stay
+significant?) to results/processed/<experiment>/.
 
---- GA long-budget run (40 runs, ~15 min with 8 cores) ---
-
-    python scripts/run_experiment.py --config configs/core_ga_long.yaml --jobs 8
-
-1M evaluations, GA only, seeds 0-9. Results go to results/raw/core_ga_long/.
+  core_wallclock.yaml   wall-clock budget, per-n time limits; 480 runs, ~1 h.
+                        Run with --jobs 1 on an otherwise idle machine, so the
+                        timings are not distorted by parallel runs.
+  core_ga_long.yaml     GA only, 1M evaluations, seeds 0-9; 40 runs, --jobs 8
+  core_gradcost1.yaml   grad_cost = 1 instead of 2 (L-BFGS-B and SGD only; CMA-ES
+  core_gradcost3.yaml   and the GA never use gradients); 240 runs each, --jobs 8
 
 --- Smoke test (single run, writes a convergence figure) ---
 
@@ -101,10 +110,11 @@ src/evonn/        installable Python package
   ea/             CMA-ES (cmaes.py) and GA (ga.py, via deap)
   baselines/      L-BFGS-B (lbfgs.py) and SGD/Adam (sgd.py)
   experiment.py   runs one (method, n_train, seed) cell
+  analysis.py     tables, paired Wilcoxon + Holm, Cliff's delta, comparisons
 scripts/          CLI entry points
-tests/            pytest suite (139 tests)
+tests/            pytest suite (151 tests)
 results/raw/      per-run JSON files (gitignored, regenerable)
-results/processed/ aggregated CSVs (committed)
+results/processed/ aggregated CSVs, one folder per experiment (committed)
 figures/          report figures (committed)
 docs/             project plan and decisions log
 report/           final write-up (managed in Overleaf)

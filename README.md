@@ -37,8 +37,9 @@ python scripts/tune.py --jobs 8                              # Phase 3 tuning (c
 python scripts/run_experiment.py --jobs 4                    # core sweep: everything in configs/core.yaml (frozen)
 python scripts/run_experiment.py --seeds 2 --methods cmaes   # a subset
 python scripts/check_runs.py results/raw/core_ntrain_sweep   # plateau, weights at bounds, time per run
-python scripts/aggregate_results.py                          # aggregate JSONs -> results/processed/*.csv + Wilcoxon tests
-python scripts/make_figures.py                               # generate report figures -> figures/
+python scripts/aggregate_results.py                          # JSONs -> results/processed/<experiment>/*.csv + Wilcoxon tests
+python scripts/make_figures.py                               # report figures -> figures/
+python scripts/compare_runs.py configs/core_gradcost1.yaml   # a secondary experiment vs the core sweep
 ```
 
 ## Repository layout

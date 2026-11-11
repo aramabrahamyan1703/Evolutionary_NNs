@@ -1,10 +1,14 @@
 """Produce report figures into figures/.
 
+Reads results/processed/<experiment>/medians.csv (run aggregate_results.py first) and,
+for the convergence curves, the raw runs in results/raw/<experiment>/.
+
 Figures generated:
-  fig1_test_train_vs_n.png   main figure: excess test MSE and train MSE vs n (log-log)
+  fig1_test_train_vs_n.png   main figure: clean test MSE (vs the noise-free f, whose floor
+                             is 0, not sigma^2) and train MSE vs n (log-log)
   fig2_gap_vs_n.png          generalisation gap (test - train) vs n (log-log)
   fig3_bounds_vs_n.png       fraction of weights at ±5 bounds vs n
-  fig4_convergence.png       best-so-far train + test MSE vs evaluations (one seed per method)
+  fig4_convergence_seed<s>_n<n>.png   best-so-far train + clean test MSE vs evaluations
 
 Usage:
     python scripts/make_figures.py
@@ -16,21 +20,21 @@ import json
 import pathlib
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import yaml
+
+from evonn.analysis import processed_dir
+from evonn.experiment import load_config
+from evonn.methods import LABELS, STYLES
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-# ------------------------------------------------------------------ style
-
 METHODS = ["cmaes", "ga", "lbfgs", "sgd"]
-LABELS  = {"cmaes": "CMA-ES", "ga": "GA", "lbfgs": "L-BFGS-B", "sgd": "SGD (Adam)"}
-COLORS  = {"cmaes": "#2a78d6", "ga": "#2ca02c", "lbfgs": "#eb6834", "sgd": "#9467bd"}
-LINES   = {"cmaes": "-", "ga": "--", "lbfgs": "-.", "sgd": ":"}
-MARKERS = {"cmaes": "o", "ga": "s", "lbfgs": "^", "sgd": "D"}
-
+COLORS = {m: STYLES[m]["color"] for m in METHODS}
 NS = [25, 100, 400, 1600]
+
+
+def line_kw(method, **extra):
+    return dict(**STYLES[method], markersize=6, linewidth=2, label=LABELS[method], **extra)
 
 
 def style_ax(ax):
@@ -48,11 +52,9 @@ def fig_test_train(medians, noise_floor, out):
     for method in METHODS:
         sub = medians[medians["method"] == method].sort_values("n_train")
         ns_m = sub["n_train"].values
-        kw = dict(color=COLORS[method], linestyle=LINES[method],
-                  marker=MARKERS[method], markersize=6, linewidth=2,
-                  label=LABELS[method])
+        kw = line_kw(method)
 
-        # excess test MSE (test_mse_clean - noise_floor)
+        # clean test MSE: against the noise-free f, so its floor is 0 (= test MSE - sigma^2 in expectation)
         y_med = sub["test_mse_clean_median"].values
         y_q25 = sub["test_mse_clean_q25"].values
         y_q75 = sub["test_mse_clean_q75"].values
@@ -68,14 +70,15 @@ def fig_test_train(medians, noise_floor, out):
         axes[1].fill_between(ns_m, y_q25, y_q75,
                              color=COLORS[method], alpha=0.12)
 
+    # the noise floor applies to the training MSE only; the clean test MSE goes to 0
+    axes[1].axhline(noise_floor, color="#52514e", linewidth=1, linestyle=":",
+                    label=f"noise floor σ²={noise_floor:.2f}")
     for ax, title, ylabel in zip(
         axes,
-        ["(a) Test MSE (clean) vs training-set size",
+        ["(a) Test MSE against the noise-free f vs training-set size",
          "(b) Training MSE vs training-set size"],
-        ["Test MSE against noise-free f", "Training MSE"],
+        ["Clean test MSE (floor 0)", "Training MSE"],
     ):
-        ax.axhline(noise_floor, color="#52514e", linewidth=1, linestyle=":",
-                   label=f"noise floor σ²={noise_floor:.2f}")
         ax.set_xscale("log")
         ax.set_yscale("log")
         ax.set_xlabel("Training set size n", fontsize=11)
@@ -86,6 +89,7 @@ def fig_test_train(medians, noise_floor, out):
         style_ax(ax)
 
     axes[0].legend(frameon=False, fontsize=9)
+    axes[1].legend(frameon=False, fontsize=9, handles=axes[1].get_lines()[-1:])
     plt.tight_layout()
     fig.savefig(out, dpi=200, bbox_inches="tight")
     plt.close(fig)
@@ -103,9 +107,7 @@ def fig_gap(medians, out):
         y_med = sub["gap_median"].values
         y_q25 = sub["gap_q25"].values
         y_q75 = sub["gap_q75"].values
-        ax.plot(ns_m, y_med, color=COLORS[method], linestyle=LINES[method],
-                marker=MARKERS[method], markersize=6, linewidth=2,
-                label=LABELS[method])
+        ax.plot(ns_m, y_med, **line_kw(method))
         ax.fill_between(ns_m, y_q25, y_q75, color=COLORS[method], alpha=0.12)
 
     ax.axhline(0, color="#52514e", linewidth=1, linestyle=":")
@@ -132,9 +134,7 @@ def fig_bounds(medians, out):
         sub = medians[medians["method"] == method].sort_values("n_train")
         ns_m = sub["n_train"].values
         y_med = sub["frac_at_bounds_median"].values
-        ax.plot(ns_m, y_med * 100, color=COLORS[method], linestyle=LINES[method],
-                marker=MARKERS[method], markersize=6, linewidth=2,
-                label=LABELS[method])
+        ax.plot(ns_m, y_med * 100, **line_kw(method))
 
     ax.set_xscale("log")
     ax.set_xlabel("Training set size n", fontsize=11)
@@ -169,19 +169,19 @@ def fig_convergence(raw_dir, seed, n, out):
         test  = [r["test_mse_clean"] for r in curve]
         noise = curve[0]["noise_floor"]
 
-        kw = dict(color=COLORS[method], linestyle=LINES[method], linewidth=2,
+        kw = dict(color=COLORS[method], linestyle=STYLES[method]["linestyle"], linewidth=2,
                   label=LABELS[method])
         axes[0].plot(evals, train, **kw)
         axes[1].plot(evals, test,  **kw)
 
+    axes[0].axhline(noise, color="#52514e", linewidth=1, linestyle=":",
+                    label=f"noise floor σ²={noise:.2f}")       # training MSE only
     for ax, title, ylabel in zip(
         axes,
         [f"(a) Training MSE  (seed {seed}, n={n})",
-         f"(b) Test MSE (clean)  (seed {seed}, n={n})"],
-        ["Training MSE (best-so-far)", "Test MSE against noise-free f"],
+         f"(b) Test MSE against the noise-free f  (seed {seed}, n={n})"],
+        ["Training MSE (best-so-far)", "Clean test MSE (floor 0)"],
     ):
-        ax.axhline(noise, color="#52514e", linewidth=1, linestyle=":",
-                   label=f"noise floor σ²={noise:.2f}")
         ax.set_xscale("log")
         ax.set_yscale("log")
         ax.set_xlabel("Function evaluations", fontsize=11)
@@ -208,18 +208,16 @@ def main():
                         help="n_train for convergence curves (default: 100)")
     args = parser.parse_args()
 
-    cfg = yaml.safe_load(args.config.read_text())
+    cfg = load_config(args.config)
     exp_name = cfg["experiment"]["name"]
-    raw_dir  = ROOT / cfg["experiment"]["output_dir"] / exp_name
-    out_dir  = ROOT / "figures"
+    raw_dir = ROOT / cfg["experiment"]["output_dir"] / exp_name
+    out_dir = ROOT / "figures"
     out_dir.mkdir(exist_ok=True)
-    proc_dir = ROOT / "results" / "processed"
     noise_floor = cfg["data"]["noise_std"] ** 2
 
-    medians_path = proc_dir / "medians.csv"
+    medians_path = processed_dir(exp_name) / "medians.csv"
     if not medians_path.exists():
-        print("results/processed/medians.csv not found — run aggregate_results.py first")
-        return
+        parser.error(f"{medians_path.relative_to(ROOT)} not found: run aggregate_results.py --config {args.config} first")
 
     medians = pd.read_csv(medians_path)
     print("generating figures ...")

@@ -15,15 +15,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 from evonn.experiment import load_config, run_cell
-from evonn.methods import LABELS
+from evonn.methods import LABELS, STYLES
 
 ROOT = Path(__file__).resolve().parents[1]
-
-# categorical slots 1-4 plus a line style each, so methods differ by more than colour
-STYLES = {"cmaes": dict(color="#2a78d6", linestyle="-"),
-          "lbfgs": dict(color="#eb6834", linestyle="--"),
-          "ga": dict(color="#1baf7a", linestyle="-."),
-          "sgd": dict(color="#eda100", linestyle=(0, (5, 1, 1, 1, 1, 1)))}
 
 
 def plot_convergence(curves, noise_floor, path):
@@ -31,7 +25,7 @@ def plot_convergence(curves, noise_floor, path):
     fig, axes = plt.subplots(1, 2, figsize=(10, 4), sharey=True)
     for ax, key, title in zip(axes, ["train_mse", "test_mse"], ["(a) Training MSE", "(b) Test MSE"]):
         for method, rows in curves.items():
-            ax.plot([r["evals"] for r in rows], [r[key] for r in rows], linewidth=2, marker="o",
+            ax.plot([r["evals"] for r in rows], [r[key] for r in rows], linewidth=2,
                     markersize=4, label=LABELS[method], **STYLES[method])
         ax.axhline(noise_floor, color="#52514e", linewidth=1, linestyle=":")
         ax.annotate(f"noise floor σ² = {noise_floor:.2f}", (0, noise_floor), xycoords=("axes fraction", "data"),

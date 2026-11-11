@@ -1,0 +1,59 @@
+# grad_cost sensitivity check (Phase 4, decision D3). Identical to configs/core.yaml except
+# grad_cost = 1 (core: 2), only the gradient methods (CMA-ES and the GA never call a
+# gradient, so their results do not depend on grad_cost) and its own experiment name.
+# Compare with the core sweep (same seeds):  python scripts/compare_runs.py configs/core_gradcost1.yaml
+
+experiment:
+  name: core_gradcost1
+  seeds: 30                     # independent repetitions per (method x n_train) cell
+  methods: [lbfgs, sgd]         # gradient methods only (see header)
+  output_dir: results/raw
+
+data:                           # target f(x) = sin(pi*x1) + sin(pi*x2), defined in evonn.data
+  input_dim: 2
+  noise_std: 0.3                # Gaussian label noise -> Bayes MSE = noise_std**2
+  n_train: [25, 100, 400, 1600] # the single experimental factor (nested subsets)
+  n_val: 5000                   # fixed
+  n_test: 5000                  # fixed
+  data_seed: 10000              # generator / val / test fixed across all runs;
+                                # must stay outside the run-seed range (0-29) to avoid leakage
+
+model:
+  hidden: 10
+  activation: tanh
+  weight_bounds: [-5.0, 5.0]
+  init: uniform                 # same init distribution for every method
+  init_scale: 0.5
+
+budget:
+  type: evaluations             # evaluations | wall_clock
+  max_evals: 100000             # full-training-set loss evaluations (D4: see pilot in PROJECT_PLAN 4.1)
+  grad_cost: 1                  # sensitivity check (core: 2) - see D3
+  max_seconds:                  # used only when type = wall_clock: one limit per n = median over methods
+    25: 4                       # of the serial (--jobs 1) wall time of a 100k-eval run, rounded up
+    100: 4                      # (Phase 3, PROJECT_PLAN §4.2)
+    400: 7
+    1600: 12
+
+methods:
+  cmaes:
+    sigma0: 0.3                 # tuned (D9)
+    popsize: null               # null -> cma default 4 + 3*ln(n)
+  ga:                           # mut_sigma, mut_indpb, pop_size tuned (D9); rest fixed
+    pop_size: 100
+    elitism: 1                  # best individuals copied unchanged to the next generation
+    tournament_size: 3
+    cx_prob: 0.7                # probability a pair is recombined
+    cx_alpha: 0.5               # blend crossover extent
+    mut_prob: 0.2               # probability a child is mutated
+    mut_sigma: 0.03             # Gaussian mutation step (tuned, D9)
+    mut_indpb: 0.1              # per-weight mutation probability (~4 of 41 weights)
+  lbfgs:
+    maxcor: 50                  # tuned (D9)
+    ftol: 1.0e-12               # tuned (D9); tighter stop before each restart
+  sgd:                          # mini-batch baseline; lr and batch_size tuned (D9)
+    optimizer: adam             # adam | momentum
+    lr: 0.01                    # tuned (D9)
+    momentum: 0.9               # only used by optimizer = momentum
+    batch_size: 64              # capped at n (n = 25 -> full batch); tuned (D9)
+    eval_every: 5               # epochs between full training-loss evaluations (~9% of the budget)
