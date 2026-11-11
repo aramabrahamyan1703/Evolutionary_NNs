@@ -1,6 +1,6 @@
 # Project Plan: Training Neural Networks with Evolutionary Algorithms
 
-_Last updated: 2026-11-10_
+_Last updated: 2026-11-11_
 
 ## 1. Where we are
 
@@ -8,11 +8,12 @@ _Last updated: 2026-11-10_
 |---|---|
 | Repo skeleton, requirements, plan, TODO | ✅ done |
 | Core decisions (D1–D9 below) | ✅ all confirmed (D3–D6 from measurements, see §4.1) |
-| Code (`src/evonn`) | ✅ Phase 1 · ✅ Phase 2: CMA-ES, GA, L-BFGS-B, SGD, experiment runner · ✅ Phase 3: tuning (138 tests) |
-| Experiments | ✅ core sweep (480 runs, 30 seeds) · ✅ wall-clock sweep · ✅ GA long run (1M evals) · ✅ aggregate + figures |
+| Code (`src/evonn`) | ✅ Phase 1 · ✅ Phase 2: CMA-ES, GA, L-BFGS-B, SGD, experiment runner · ✅ Phase 3: tuning · ✅ Phase 4: analysis, aggregation, comparisons, figures (151 tests) |
+| Experiments | ✅ core sweep · ✅ wall-clock sweep · ✅ GA long run (1M evals) · ✅ `grad_cost` 1 / 3 · ✅ tables + figures (§4.3) |
 | Report | 🟡 in progress (§1–§6 drafted in Overleaf) |
 
-**Next step:** grad_cost sensitivity check + report finalisation (README.txt, proofread, tag release).
+**Next step:** choose a Phase 5 extension (or none), then the report (Phase 6). Report figures to revisit: Fig 2
+(linear y: n = 25 flattens the rest) and Fig 1b (log axis down to 1e-13 hides the GA's higher training MSE at n ≥ 100).
 
 ---
 
@@ -109,7 +110,7 @@ final weights, convergence curve, best-validation checkpoint and per-restart res
 |---|---|---|---|---|
 | D1 | Task / generator | Regression, f(x) = sin(πx₁) + sin(πx₂) on [−1,1]² | ✅ | Regression gives an exact noise floor σ² |
 | D2 | Noise level | σ = 0.3, noise floor 0.09 (try 0.1 and 0.5 if time allows) | ✅ | "Noisy" is part of the hypothesis |
-| D3 | Budget unit | Evaluations, loss+grad = 2 evals; wall-clock as secondary; sensitivity at 1 and 3 | ✅ | Measured cost ratio 1.8–2.3 (§4.1) |
+| D3 | Budget unit | Evaluations, loss+grad = 2 evals; wall-clock as secondary; sensitivity at 1 and 3 | ✅ | Measured cost ratio 1.8–2.3 (§4.1). Checked: `grad_cost` 1 or 3 and the wall-clock budget leave the rankings and the main conclusions unchanged (§4.3) |
 | D4 | Budget size | 100 000 evals; also report 10k/20k/50k from snapshots | ✅ | CMA-ES training MSE changes < 1% from 50k to 100k for n ≥ 100; at 20k it is still 4–8% above its plateau (§4.1) |
 | D5 | Hidden size | H = 10 (41 parameters) | ✅ | p/n ranges from 1.6 (n = 25, over-parameterised) to 0.026 (n = 1600); at n = 1600 both methods reach clean test MSE ≈ 0.0026 (3% of σ²), so H = 10 can represent f |
 | D6 | Final-model selection | Best training loss within budget, same for all methods; per-restart and best-validation results also logged | ✅ | Isolates the optimiser's effect; logging the rest allows a validation-selection analysis later |
@@ -182,6 +183,68 @@ wall time of a 100k-evaluation run (seed 100), rounded up: n = 25 → 4 s, 100 �
 Serial times (s), CMA-ES / GA / L-BFGS-B / SGD: n=25 4.6/2.2/3.9/1.1, n=100 4.9/2.5/4.3/2.2, n=400 6.5/4.2/5.9/7.8,
 n=1600 11.8/9.3/10.5/28.2. SGD is the slowest per evaluation at large n (many small Python steps).
 
+### 4.3 Phase 4 results (2026-11-11)
+
+All runs at commit `cbc64ec`. Runs stamped `cbc64ec-dirty` differ from it only in `.gitignore` (an entry for an
+iCloud duplicate folder, added during the core sweep); no code or config changed. Raw runs: `results/raw/<experiment>/`
+(not in git); tables: `results/processed/<experiment>/`; figures: `figures/`.
+
+**Reproduction check.** The rerun of the core sweep matches Marta's first run (commit `b582eb2`) exactly for the GA,
+L-BFGS-B and SGD (120/120 runs each). CMA-ES differs in all runs (her environment, most likely a different `cma`/numpy
+version; our CMA-ES reproduces itself exactly). Same verdict in 23 of 24 method pairs; the exception is CMA-ES vs
+L-BFGS-B at n = 100, borderline in both (p_holm 0.073 here, 0.028 there). The rerun is the record.
+
+**Core sweep** (`core_ntrain_sweep`, 100k evaluations, 30 seeds; medians; clean test MSE is against the noise-free f,
+floor 0):
+
+| n | CMA-ES train / test | GA train / test | L-BFGS-B train / test | SGD train / test |
+|---|---|---|---|---|
+| 25 | 0.0000 / 1.85 | 0.036 / **0.149** | 0.0000 / 2.26 | 0.0000 / 1.69 |
+| 100 | 0.054 / 0.067 | 0.082 / **0.030** | 0.045 / 0.092 | 0.052 / 0.070 |
+| 400 | 0.079 / **0.011** | 0.095 / 0.014 | 0.078 / 0.014 | 0.080 / **0.011** |
+| 1600 | 0.088 / **0.0023** | 0.101 / 0.012 | 0.088 / 0.0027 | 0.089 / **0.0024** |
+
+Paired Wilcoxon on the clean test MSE, Holm over all 24 tests (`wilcoxon.csv`):
+- n ≤ 100: the GA beats every other method (Cliff's δ ≈ 0.95–0.98, p_holm < 1e-7). Among the others only L-BFGS-B vs
+  SGD at n = 100 differs (SGD better, p_holm = 0.03).
+- n = 400: CMA-ES and SGD (equal) beat the GA and L-BFGS-B (p_holm ≤ 0.005).
+- n = 1600: the GA is worst (δ = 1 against every method); CMA-ES beats L-BFGS-B; CMA-ES vs SGD not significant.
+
+The GA's training MSE is the highest at every n (above the noise floor for n ≥ 400): **its small-n advantage comes
+with fitting less**, and it turns into a disadvantage once n is large enough that fitting more no longer overfits.
+The same holds among the other three: L-BFGS-B fits hardest (lowest training MSE at every n ≥ 100) and generalises
+worst of them (worse than SGD at n = 100 and 400, than CMA-ES at n = 400 and 1600). At n = 25 all three interpolate (train ≈ 0).
+
+**GA long run** (`core_ga_long`, 1M evaluations, seeds 0–9, paired with the core seeds; `compare_methods.csv`):
+
+| n | GA train 100k → 1M | GA test 100k → 1M | GA 1M vs CMA / L-BFGS-B / SGD at 100k (Cliff's δ on test; < 0: GA better) |
+|---|---|---|---|
+| 25 | 0.037 → 0.014 | 0.138 → 0.269 (worse, p_holm 0.008) | −0.92 / −0.90 / −0.96 |
+| 100 | 0.087 → 0.071 | 0.029 → 0.028 (n.s.) | −0.82 / −0.90 / −0.88 |
+| 400 | 0.098 → 0.088 | 0.015 → 0.007 (better, p_holm 0.008) | −0.70 / −0.92 / −0.62 |
+| 1600 | 0.099 → 0.090 | 0.012 → 0.003 (better, p_holm 0.008) | +0.62 / +0.26 / +0.50 |
+
+With 10× the budget the GA fits more, its large-n disadvantage mostly disappears, and at n = 25 it starts to overfit.
+It still fits less than the other methods at every n (train 0.071 vs 0.043–0.052 at n = 100), so the GA never reaches
+"fits as well, generalises better". 10 seeds only: the smallest possible p_holm over 24 pair tests is ≈ 0.047, so the
+GA-vs-others column is descriptive (effect sizes), not tested.
+
+**`grad_cost` sensitivity** (`core_gradcost1`, `core_gradcost3`: L-BFGS-B and SGD rerun, CMA-ES and the GA unchanged
+by construction; 30 paired seeds):
+- L-BFGS-B and SGD change by at most a few percent; no difference vs `grad_cost` 2 is significant, except SGD at
+  n = 100 with `grad_cost` 3 (fewer gradient steps → test 0.070 → 0.065, p_holm 0.015).
+- Ranking by median test MSE unchanged at every n for `grad_cost` 1; for 3 only CMA-ES and SGD swap at n = 100
+  (their difference is not significant in either run). 23 of 24 pair verdicts unchanged in both (the exception is
+  the borderline CMA-ES vs L-BFGS-B at n = 100, significant at 1 and 3).
+
+**Wall-clock budget** (`core_ntrain_sweep_wallclock`, per-n time limits 4 / 4 / 7 / 12 s, `--jobs 1`):
+- Evaluations reached (median): GA 127k–180k (cheapest per evaluation), CMA-ES 82k–108k, L-BFGS-B 92k–119k,
+  SGD 365k at n = 25 down to 42k at n = 1600 (many small Python steps).
+- CMA-ES, L-BFGS-B and SGD: no significant change vs the core sweep. The GA gets more evaluations, so it fits a bit
+  more: its test MSE drops at n ≥ 100 (e.g. 0.014 → 0.011 at n = 400) and rises at n = 25 (0.149 → 0.170).
+- 19 of 24 pair verdicts unchanged and the ranking unchanged except at n = 400, where the GA moves from last (tied
+  with L-BFGS-B) to level with CMA-ES and SGD, ahead of L-BFGS-B. Same picture as the GA long run: more GA evaluations → the GA catches up at larger n.
+
 ---
 
 ## 5. Roadmap
@@ -203,12 +266,9 @@ Repo, venv, requirements, plan, TODO.
 ✅ Tuned every method with the same protocol (D9, `python scripts/tune.py --jobs 8`), checked plateaus, bounds and
 timing (`scripts/check_runs.py`), set the wall-clock limits and froze `configs/core.yaml` (§4.2).
 
-### Phase 4: Core experiment
-- 4 sizes × 4 methods × 30 seeds with `configs/core.yaml` (evaluation budget), then the same with
-  `configs/core_wallclock.yaml` (per-n time limits, own result folder, run with `--jobs 1`).
-- Secondary (confirmed): GA with a 1M-evaluation budget, seeds 0–9, all n, to see whether its test-error difference survives
-  once it fits as well as the others (§4.2, finding 2).
-- Aggregation, statistical tests, and the main figures.
+### Phase 4: Core experiment ✅
+Core sweep, wall-clock sweep, GA long run and `grad_cost` 1 / 3 run and analysed (`aggregate_results.py`,
+`compare_runs.py`, `make_figures.py`); results in §4.3.
 
 ### Phase 5: Extensions (pick one or two)
 - **E1:** Evolve H (number of hidden units) together with the weights, using **validation error** as fitness.
@@ -226,7 +286,7 @@ Report: introduction, method, setup (all decisions and why), results, discussion
 
 | Risk | Mitigation |
 |---|---|
-| The EA doesn't reach a low training loss within the budget, so any "generalisation advantage" is really under-fitting | Always report train and test error together. Check convergence curves. **Happened for the GA (§4.2)**: report it, plus a longer-budget GA run (Phase 4) |
+| The EA doesn't reach a low training loss within the budget, so any "generalisation advantage" is really under-fitting | Always report train and test error together. Check convergence curves. **Happened for the GA (§4.2)**; even at 1M evaluations it fits less than the others (§4.3), so report its test advantage together with its training error |
 | Unequal tuning effort favours one method | Same tuning protocol and budget for every method (Phase 3) |
 | The budget unit is disputed | Report both evaluations and wall-clock, plus the `grad_cost` sensitivity check |
 | Weights saturate at ±5 bounds (tanh saturation) | Log how many weights sit at the bounds (`frac_at_bounds`). Measured: 5–17% for CMA-ES / L-BFGS-B / SGD, ~0% for the GA (§4.2) |

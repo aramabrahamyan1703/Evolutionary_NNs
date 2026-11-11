@@ -45,13 +45,14 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done. Phases match `docs/PROJEC
 - [x] Wall-clock limits per n from serial timing (4 / 4 / 7 / 12 s)
 - [x] Freeze `configs/core.yaml`
 
-## Phase 4: Core experiment
-- [x] Full sweep: 4 sizes × methods × 30 seeds (evaluation budget, `configs/core.yaml`)
-- [x] Same sweep with the wall-clock budget: `configs/core_wallclock.yaml`, `--jobs 1` — same conclusions as eval-budget, D3 validated
-- [ ] `grad_cost` sensitivity check (1 vs 2 vs 3)
-- [x] GA long-budget run: `configs/core_ga_long.yaml`, seeds 0–9, all n — GA converges at n≥400 with 1M evals; advantage at n=100 holds
-- [x] `scripts/aggregate_results.py`: CSV tables, Wilcoxon + Holm, effect sizes
-- [x] `scripts/make_figures.py`: test−σ² vs n, train vs n, convergence curves, gap, bounds
+## Phase 4: Core experiment ✅
+- [x] Full sweep: 4 sizes × 4 methods × 30 seeds (`configs/core.yaml`); reproduces Marta's first run except CMA-ES (environment), same conclusions
+- [x] Wall-clock sweep (`configs/core_wallclock.yaml`, `--jobs 1`): ranking unchanged except n = 400, where the GA (more evaluations per second) catches up
+- [x] `grad_cost` sensitivity (`configs/core_gradcost{1,3}.yaml`): rankings unchanged (one non-significant swap), D3 checked
+- [x] GA long run (`configs/core_ga_long.yaml`, 1M evals, seeds 0–9): fits more, catches up at n ≥ 400, overfits more at n = 25; still fits less than the others
+- [x] `scripts/aggregate_results.py` (+ `evonn/analysis.py`): per-experiment tables, seed-paired Wilcoxon + Holm, Cliff's delta
+- [x] `scripts/compare_runs.py`: secondary experiments vs the core sweep
+- [x] `scripts/make_figures.py`: test (clean) and train vs n, gap, bounds, convergence curves
 
 ## Phase 5: Extensions (choose)
 - [ ] E1: evolve the hidden size H with validation fitness. Does H track n?

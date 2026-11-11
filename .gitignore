@@ -1,6 +1,7 @@
 # Environments
 .venv
 .venv.nosync/
+.venv 2
 venv/
 env/
 
