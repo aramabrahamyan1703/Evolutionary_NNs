@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PROCESSED = ROOT / "results" / "processed"
 
 MEDIAN_METRICS = ["train_mse", "test_mse", "test_mse_clean", "excess_test", "gap",
-                  "frac_at_bounds", "evals_used", "wall_time"]
+                  "frac_at_bounds", "evals_used", "selected_evals", "wall_time"]
 
 
 def processed_dir(experiment):
@@ -49,15 +49,29 @@ def holm_correction(p_values):
     return adjusted
 
 
-def load_runs(raw_dir):
-    """One row per run JSON in raw_dir: identifiers, budget used, final metrics."""
+SELECTIONS = ("final", "best_val", "best_select")
+
+
+def load_runs(raw_dir, selection="final"):
+    """One row per run JSON in raw_dir: identifiers, budget used, and the metrics of the
+    network chosen by `selection`:
+      final        the returned network (lowest training loss, D6)
+      best_val     the checkpoint with the lowest MSE on the 5000-point validation set
+      best_select  the checkpoint with the lowest MSE on the small selection set (D10, Phase 5)
+    selected_evals is the evaluation count of the chosen network (evals_used for final)."""
+    if selection not in SELECTIONS:
+        raise ValueError(f"selection must be one of {SELECTIONS}")
     rows = []
     for f in sorted(Path(raw_dir).glob("*.json")):
         d = json.loads(f.read_text())
+        if selection not in d:
+            raise KeyError(f"{f.name} has no {selection!r} (run with a `selection:` config block)")
+        chosen = {k: v for k, v in d[selection].items() if k not in ("theta", "evals")}
         rows.append({"method": d["meta"]["method"], "n_train": d["meta"]["n_train"],
                      "seed": d["meta"]["seed"], "evals_used": d["budget"]["evals_used"],
+                     "selected_evals": d[selection].get("evals", d["budget"]["evals_used"]),
                      "wall_time": d["budget"]["wall_time"], "git_commit": d["meta"]["git_commit"],
-                     **d["final"]})
+                     **chosen})
     if not rows:
         raise FileNotFoundError(f"no run JSONs in {raw_dir}")
     return pd.DataFrame(rows).sort_values(["method", "n_train", "seed"]).reset_index(drop=True)

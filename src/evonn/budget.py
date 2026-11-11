@@ -48,6 +48,14 @@ def default_checkpoints(max_evals):
     return points
 
 
+def dense_checkpoints(max_evals, per_decade=10):
+    """default_checkpoints plus `per_decade` log-spaced counts per factor of 10 (Phase 5:
+    early stopping should not be limited by a coarse grid)."""
+    k_max = int(np.ceil(per_decade * np.log10(max(max_evals, 1))))
+    log_grid = {int(round(10 ** (k / per_decade))) for k in range(k_max + 1)}
+    return sorted({c for c in log_grid if c <= max_evals} | set(default_checkpoints(max_evals)))
+
+
 class CountedObjective:
     """Training loss of `model` on (X, y), with evaluation counting and best-so-far tracking."""
 

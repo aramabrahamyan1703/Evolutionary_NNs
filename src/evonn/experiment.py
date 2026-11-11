@@ -14,6 +14,10 @@ The JSON holds:
   curve     metrics of the best-so-far network at every checkpoint (convergence
             curves; results at smaller budgets)
   best_val  the checkpoint with the lowest validation MSE (D6 secondary analysis)
+  best_select  (only with a `selection:` config block, Phase 5) the checkpoint with the
+            lowest MSE on the small selection set (D10): early stopping as a realistic
+            user would do it. The block also adds select_mse to every metric dict, a
+            denser checkpoint grid and the weights of every checkpoint ("theta" in curve)
   restarts  metrics of each restart's best network (D6 secondary analysis)
 """
 
@@ -27,8 +31,8 @@ from pathlib import Path
 
 import yaml
 
-from evonn.budget import CountedObjective
-from evonn.data import generate_datasets
+from evonn.budget import CountedObjective, dense_checkpoints
+from evonn.data import generate_datasets, selection_sets
 from evonn.methods import METHODS
 from evonn.metrics import evaluate, evaluate_snapshots
 from evonn.mlp import MLP
@@ -43,8 +47,11 @@ def load_config(path):
 
 def build_data(cfg, seed):
     d = cfg["data"]
-    return generate_datasets(seed, sigma=d["noise_std"], train_sizes=tuple(d["n_train"]),
+    data = generate_datasets(seed, sigma=d["noise_std"], train_sizes=tuple(d["n_train"]),
                              n_val=d["n_val"], n_test=d["n_test"], data_seed=d["data_seed"])
+    if cfg.get("selection"):
+        data["select"] = selection_sets(seed, sigma=d["noise_std"], train_sizes=tuple(d["n_train"]))
+    return data
 
 
 def method_params(cfg, method):
@@ -97,15 +104,18 @@ def run_cell(cfg, method, n, seed):
     else:
         raise ValueError(f"unknown budget.type {b['type']!r}")
 
+    sel = cfg.get("selection") or {}
+    checkpoints = dense_checkpoints(max_evals, sel["checkpoints_per_decade"]) if sel else None
     obj = CountedObjective(model, X, y, max_evals=max_evals, grad_cost=b["grad_cost"],
-                           max_seconds=max_seconds)
+                           max_seconds=max_seconds, checkpoints=checkpoints)
     info = METHODS[method](obj, model, x0, seed, params)
     wall_time = obj.elapsed
     # the curve must end at the returned network, also when the run stopped between
     # checkpoints (time limit, or a budget not reachable in steps of grad_cost)
     obj.snapshots.setdefault(obj.evals_used, (obj.best_loss, obj.best_theta.copy()))
 
-    curve = evaluate_snapshots(model, obj.snapshots, data, n, bound=bound)
+    curve = evaluate_snapshots(model, obj.snapshots, data, n, bound=bound,
+                               with_theta=bool(sel.get("save_thetas")))
     best_val = min(curve, key=lambda r: r["val_mse"])
     restarts = [{"start_evals": r["start_evals"],
                  **_short(evaluate(model, r["best_theta"], data, n, bound=bound))}
@@ -140,6 +150,7 @@ def run_cell(cfg, method, n, seed):
         "curve": curve,
         "best_val": best_val,
         "restarts": restarts,
+        **({"best_select": min(curve, key=lambda r: r["select_mse"])} if sel else {}),
     }
 
 

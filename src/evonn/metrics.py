@@ -36,7 +36,7 @@ def evaluate(model, theta, data, n, bound=WEIGHT_BOUND, at_bound=0.99):
     train = mse(model, theta, X_tr, y_tr)
     test = float(np.mean((pred_te - y_te) ** 2))
 
-    return {
+    out = {
         "train_mse": train,
         "val_mse": mse(model, theta, X_val, y_val),
         "test_mse": test,
@@ -48,12 +48,19 @@ def evaluate(model, theta, data, n, bound=WEIGHT_BOUND, at_bound=0.99):
         "max_abs_theta": float(np.max(np.abs(theta))),
         "theta_norm": float(np.linalg.norm(theta)),
     }
+    if "select" in data:                       # small validation set for model selection (D10)
+        X_s, y_s = data["select"][n]
+        out["select_mse"] = mse(model, theta, X_s, y_s)
+    return out
 
 
-def evaluate_snapshots(model, snapshots, data, n, **kw):
-    """evaluate() at every checkpoint of a CountedObjective. Returns a list of dicts sorted by evals."""
+def evaluate_snapshots(model, snapshots, data, n, with_theta=False, **kw):
+    """evaluate() at every checkpoint of a CountedObjective. Returns a list of dicts sorted by evals
+    (with the weights as "theta" if with_theta)."""
     rows = []
     for evals in sorted(snapshots):
         _, theta = snapshots[evals]
         rows.append({"evals": evals, **evaluate(model, theta, data, n, **kw)})
+        if with_theta:
+            rows[-1]["theta"] = theta.tolist()
     return rows

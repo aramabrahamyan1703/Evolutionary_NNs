@@ -6,12 +6,14 @@ reuse the random numbers that drew the training points:
 
     rng(seed, INIT)       initial weights
     rng(seed, OPTIMISER)  CMA-ES / GA sampling, L-BFGS restarts
+    rng(seed, SELECTION)  small validation (selection) sets, Phase 5 (decision D10)
 """
 
 import numpy as np
 
 INIT = 1
 OPTIMISER = 2
+SELECTION = 3
 
 
 def rng(seed, stream):

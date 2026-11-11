@@ -24,9 +24,16 @@ How the data is split:
     only thing that changes between sizes is how many points are used.
 
 Use generate_datasets(seed) to get all the sets for one run.
+
+Phase 5 (decision D10) adds a small, realistic validation set for model selection
+(early stopping, choosing H): n points for a training set of n points, drawn per
+seed from its own random stream and nested like the training sets. The 5000-point
+validation set is far larger than any training set and stays a measurement only.
 """
 
 import numpy as np
+
+from evonn.seeding import SELECTION, rng
 
 SIGMA = 0.3                  # noise standard deviation
 NOISE_FLOOR = SIGMA**2       # 0.09, lowest achievable test MSE
@@ -82,3 +89,10 @@ def generate_datasets(seed, sigma=SIGMA, train_sizes=TRAIN_SIZES, n_val=N_VAL,
     train = {n: (X_pool[:n], y_pool[:n]) for n in train_sizes}
 
     return {"train": train, "val": val, "test": test, "noise_floor": sigma**2}
+
+
+def selection_sets(seed, sigma=SIGMA, train_sizes=TRAIN_SIZES):
+    """Small validation sets for model selection (D10): {n: (X, y)} with n points each,
+    the first n of one pool of max(train_sizes) points drawn with rng(seed, SELECTION)."""
+    X_pool, y_pool = sample(max(train_sizes), rng(seed, SELECTION), sigma)
+    return {n: (X_pool[:n], y_pool[:n]) for n in train_sizes}
