@@ -132,10 +132,7 @@ H1 is \emph{falsified} if the EA's test error is never lower than the baseline's
 grows with $n$, or if a lower test error comes purely from a higher training error (underfitting rather
 than a better minimum). To separate these cases we always report training and test error side by side.
 
-\paragraph{Anticipating the result.}
-The experiments show that case~(3) applies: the GA's lower test error at small $n$ comes with a higher
-training error, and it vanishes once every method gets the same validation-based early stopping.
-\cmaes{} behaves like the gradient methods throughout. H1 is not supported as a flat-minima story.
+
 
 % ============================================================
 \section{Design}
@@ -162,10 +159,11 @@ $\bm\theta_0\sim U(-0.5,0.5)^{p}$ per seed.
 
 \subsection{Methods and budget}
 
-The primary budget is $\B=10^5$ full-training-loss evaluations (D4). A loss call costs~1; a
+The primary budget is $\B=10^5$ full-training-loss evaluations. A loss call costs~1; a
 loss-plus-gradient call costs $g=2$, reflecting the measured ratio of 1.8--2.3 in our implementation
 (Table~\ref{tab:gradcost}). The returned network is the one with the lowest training loss seen within
-the budget (D6). Table~\ref{tab:optimisers} summarises the tuned settings.
+the budget --- the same rule for every method, so the comparison isolates what kind of minimum each
+optimiser finds. Table~\ref{tab:optimisers} summarises the tuned settings.
 
 \begin{table}[h]
   \centering
@@ -183,8 +181,9 @@ the budget (D6). Table~\ref{tab:optimisers} summarises the tuned settings.
 
 \begin{table}[h]
   \centering
-  \caption{Optimiser settings (tuned in Phase 3, D9: lowest mean rank of training MSE over 8 settings
-  per method, seeds 100--104, $n\in\{100,400\}$).}
+  \caption{Optimiser settings. All hyperparameters were chosen by the same tuning protocol: 8 candidate
+  settings per method, evaluated on seeds 100--104 at $n\in\{100,400\}$; winner = lowest mean rank of
+  final training MSE. Tuning on training MSE avoids rewarding settings that win by underfitting.}
   \label{tab:optimisers}
   \small
   \begin{tabularx}{\linewidth}{@{}l l X@{}}
@@ -283,16 +282,16 @@ $p_\mathrm{Holm}=0.008$). It still fits less than the other methods at $n=100$ (
 0.043--0.052): the GA never reaches ``fits as well, generalises better''.
 
 \textbf{Gradient cost.} With $g=1$ or $g=3$, 23 of 24 pairwise verdicts are unchanged; the one
-exception is Adam at $n=100$ with $g=3$ ($p_\mathrm{Holm}=0.015$). D3 does not drive the results.
+exception is Adam at $n=100$ with $g=3$ ($p_\mathrm{Holm}=0.015$). The choice $g=2$ does not drive the results.
 
 \textbf{Wall-clock budget.} With per-$n$ time limits (4, 4, 7, 12\,s), 19 of 24 verdicts are
 unchanged. The GA gets more evaluations per second and catches up at $n=400$.
 
 \subsection{Fair early stopping}
 
-In the core sweep only the GA stops early (it never reaches the overfitting stage). Phase~5 gives
-every method the same early stopping: the checkpoint with the lowest MSE on a selection set of $n$
-points (Table~\ref{tab:es}). The GA's small-$n$ advantage disappears: at $n=100$ no method differs
+In the core sweep only the GA stops early (it never reaches the overfitting stage). We then gave
+every method the same early stopping: for each run we picked the checkpoint with the lowest MSE on
+an independent selection set of $n$ points drawn per seed (Table~\ref{tab:es}). The GA's small-$n$ advantage disappears: at $n=100$ no method differs
 from the best (\lbfgs), but Adam beats the GA ($p_\mathrm{Holm}=0.011$); at $n\ge400$ the GA is
 the worst. The gradient methods reach their best networks very early (\lbfgs{} after 100--500
 evaluations, Adam 1.4k--4k, \cmaes{} 4k--20k); the GA needs the whole budget for $n\ge100$.
@@ -346,23 +345,27 @@ The ranking does not change, but \lbfgs{} gains the most from capacity selection
 The MLP error landscape is \emph{deceptive} and \emph{multimodal} \citep{yao1999evolving}: gradient
 methods get trapped in whichever minimum they find first. The convergence curves
 (Figure~\ref{fig:convergence}) show that \lbfgs{} reaches a low training loss in under 1000 evaluations
-and then restarts; \cmaes{} improves more gradually. As shown in the course lab \citep{hansen2001completely},
-evolution strategies must adapt their step size: a fixed $\sigma$ either stagnates or overshoots.
-\cmaes{} goes further: it learns a full covariance matrix \citep{hansen2001completely}, aligning its
-search with the geometry of the landscape. In 41 dimensions with correlated weights, this gives
-\cmaes{} an exploration advantage over the GA (which uses axis-aligned mutation with a small fixed
-$\sigma_{\mathrm{mut}}=0.03$).
+and then restarts; \cmaes{} improves more gradually. The pilot study (3 seeds) also revealed a
+counterintuitive finding: at $n=100$ the clean test MSE of \cmaes{} \emph{rises} with the budget
+(0.039 at $10^4$ evaluations $\to$ 0.072 at $10^5$). An under-converged optimiser can look as if it
+generalises better --- which is exactly what happens with the GA.
 
-The key mechanism, however, is not flat minima but \emph{implicit early stopping}. The GA never
-reaches the overfitting stage within the budget, so it returns a network that happens to generalise
-well --- not because it found a better minimum, but because it stopped before fitting the noise.
+\cmaes{} adapts its step size and learns a full covariance matrix \citep{hansen2001completely},
+so it aligns its search with the geometry of the landscape in a way that axis-aligned mutation
+(the GA, with $\sigma_{\mathrm{mut}}=0.03$ per gene) cannot. The GA's small step and low mutation
+rate mean it makes slow progress and stops --- not at a good minimum, but before it reaches one.
 
-\textbf{Sharpness.} We measured perturbation sharpness at \emph{matched training error} (the GA's
-final training MSE, to remove the effect of training progress). The GA is flatter than \lbfgs{} at
-every $n$ ($p_\mathrm{Holm}\le4\cdot10^{-5}$), but flatness does not predict test error: at $n\ge100$
-the sharpest method (\lbfgs) has the lowest test MSE of the matched networks. Only at $n=25$ do the
-flatter networks also generalise better. This is inconsistent with H1 as a flat-minima story, and
-consistent with the view that the GA's advantage is implicit early stopping.
+The sharpness measurement confirms this. We define perturbation sharpness as
+$S_\rho(\bm\theta) = \frac{1}{K}\sum_{k=1}^{K}[\Ltr(\bm\theta+\bm\epsilon_k)-\Ltr(\bm\theta)]$
+where $K=200$ random directions $\bm\epsilon_k$ have norm $\rho\|\bm\theta\|$, $\rho=0.01$.
+To remove the effect of training progress, we compare methods at \emph{matched training error}
+(the GA's final training MSE per seed).
+
+\textbf{Sharpness results.} The GA is flatter than \lbfgs{} at every $n$
+($p_\mathrm{Holm}\le4\cdot10^{-5}$), but flatness does not predict test error: at $n\ge100$ the
+sharpest method (\lbfgs) has the \emph{lowest} test MSE of the matched networks. Only at $n=25$ do
+the flatter networks also generalise better. So H1 as a flat-minima story is not supported --- at least
+not for the range of $n$ where the data is sufficient for the comparison to be meaningful.
 
 \begin{figure}[h]
   \centering
@@ -419,8 +422,7 @@ as AI assistants for the following tasks:
 \end{itemize}
 
 All experimental decisions are documented in \texttt{docs/PROJECT\_PLAN.md}. The conclusions drawn
-from the results are our own. We verified every number in the report against
-\texttt{results/processed/} before submitting.
+from the results are our own.
 
 % ============================================================
 \addcontentsline{toc}{section}{References}
