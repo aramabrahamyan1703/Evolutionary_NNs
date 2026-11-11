@@ -1,0 +1,11 @@
+# Phase 5.3: capacity and early stopping chosen the same way for every method.
+# For each method, n and seed: train one network per hidden size H on the training set
+# (full core budget each, same settings as configs/p5_selection.yaml, which is the H = 10
+# slice), then pick the (H, checkpoint) pair with the lowest selection-set MSE (D10).
+# Question: once capacity and early stopping are tuned identically, does an EA-trained
+# network generalise better? And does the chosen H grow with n?
+#   python scripts/arch.py --jobs 8
+# Optimiser settings were tuned at H = 10 (D9) and are used unchanged for every H.
+
+base_config: configs/p5_selection.yaml
+hidden: [2, 4, 6, 10, 15, 20]
