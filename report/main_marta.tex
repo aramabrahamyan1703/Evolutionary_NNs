@@ -258,13 +258,34 @@ $\hat\delta = 2\hat{A}_{12}-1$ where $\hat{A}_{12}$ is the Vargha--Delaney stati
   \label{fig:core}
 \end{figure}
 
-At $n\le100$, the GA beats every other method (Cliff's $\hat\delta\approx0.95$--$0.98$,
-$p_{\mathrm{Holm}}<10^{-7}$). However, the GA has the highest training MSE at every $n$: its small-$n$
-advantage comes with fitting less. At $n=25$ all three gradient-converged methods interpolate the
-training data (train MSE $\approx0$) and their clean test MSE is $>17\times$ the noise floor. At
-$n\ge400$, \cmaes{} and Adam approach the noise floor; the GA lags behind due to underfitting.
-Among the converged methods, \lbfgs{} fits hardest but generalises worst at $n\le400$: fitting
-more does not mean generalising better.
+Table~\ref{tab:core} shows that the best-performing method depends on the training-set size.
+At $n=25$ and $n=100$, the GA has the lowest clean test MSE (0.149 and 0.030, respectively).
+At $n=400$, \cmaes{} and Adam obtain the lowest value (0.011), while at $n=1600$ their results
+are also very similar (0.0023 and 0.0024).
+
+For $n\le100$, the GA performs significantly better on the clean test set than the other methods
+(Cliff's $\hat\delta$ ranges from $-0.949$ to $-0.984$ at $n=25$--$100$,
+$p_{\mathrm{Holm}}<10^{-7}$). However, it also has the highest training MSE at every $n$.
+At $n=100$ its training MSE is 0.082, compared with 0.045--0.054 for the other methods.
+This means that the GA's lower test error at small training sizes comes with a worse fit to the
+training data. It therefore matches the third falsification case for H1: its apparent advantage
+can be explained by underfitting, rather than by finding a better minimum.
+
+At $n=25$, \cmaes{}, \lbfgs{} and Adam all reach almost zero training error, but their clean
+test MSE remains above 1.5 (1.69--2.26). The GA has a higher training error (0.036) but a much
+lower clean test error (0.149). This is consistent with the GA fitting the data less closely,
+although it does not by itself show that the GA has found a better minimum.
+
+At $n\ge400$, \cmaes{} and Adam obtain very similar test errors, while \lbfgs{} is slightly
+worse and the GA has the highest test error. The results show that the GA's advantage at small
+$n$ does not continue as more training data becomes available.
+
+Among the three methods that fit the training data more closely, \lbfgs{} reaches the lowest
+training MSE at $n\ge100$, but this does not give it the best test performance. It performs
+significantly worse than Adam at $n=100$ and $n=400$, and worse than \cmaes{} at $n=400$
+and $n=1600$. The difference between \lbfgs{} and \cmaes{} at $n=100$ is not significant
+after Holm correction ($p_{\mathrm{Holm}}=0.073$). Fitting the training data more closely
+does not necessarily lead to better generalisation.
 
 \begin{figure}[h]
   \centering
