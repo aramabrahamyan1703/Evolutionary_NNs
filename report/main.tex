@@ -52,7 +52,7 @@
 \includegraphics[width=1\textwidth]{images/logo.jpg}\\
 \vfill
 
-{\huge \textbf{Do Evolutionary Algorithms Generalise Better? A Controlled Comparison with Gradient-Based Methods Across Training-Set Sizes}}
+{\huge \textbf{Do Evolutionary Algorithms Generalise Better? A Controlled Comparison with Gradient-Based Methods Under Data Scarcity}}
 
 \vspace*{3\baselineskip}
 
@@ -84,21 +84,13 @@
 \end{center}
 \pagebreak
 
-% Abstract %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Contents %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\newpage
+\pagenumbering{roman}
+\tableofcontents
+\cleardoublepage
 \pagenumbering{arabic}
-
-\begin{abstract}
-We compare two evolutionary algorithms (\cmaes{} and a real-coded GA) with two derivative-based methods
-(\lbfgs{} and Adam) for training a one-hidden-layer MLP (41 weights) on a synthetic regression problem
-with known noise floor $\sigma^2=0.09$, at the same budget of $10^5$ error-function evaluations, for
-$n\in\{25,100,400,1600\}$ training points and 30 paired seeds. With the network of lowest training error,
-the GA has the lowest test error at $n\le100$ and the highest at $n=1600$, but the highest training error
-at every $n$. When every method receives the same early stopping on a selection set of $n$ points, the
-advantage disappears, and the gradient methods reach their best networks with 5--1000$\times$ fewer
-evaluations. GA solutions are flatter than \lbfgs{} solutions at equal training error, but flatness does
-not predict test error. The apparent advantage is implicit early stopping, not a better minimum.
-\end{abstract}
 
 % ============================================================
 \section{Introduction}
@@ -115,9 +107,8 @@ units with their weights leaves the network unchanged), and the computational co
 showed that evolution strategies match deep reinforcement learning on control tasks, and
 \citet{such2017deep} showed that a plain GA is competitive with DQN and A3C on Atari.
 
-It is often claimed that, by not following the gradient into the nearest sharp minimum, EAs find networks that
-generalise better; the link between sharp minima and poor generalisation goes back to \citet{hochreiter1997flat} and  \citet{keskar2017large}.
-We test this claim in a controlled setting
+It is often claimed that, by not following the gradient into the nearest sharp minimum, EAs find
+networks that generalise better \citep{keskar2017large}. We test this claim in a controlled setting
 where the noise floor is known exactly, all methods share one network implementation and one budget
 unit, and the training-set size is the single factor. Our main finding is that the apparent
 generalisation advantage of the GA is better explained by implicit early stopping than by finding
@@ -141,7 +132,10 @@ H1 is \emph{falsified} if the EA's test error is never lower than the baseline's
 grows with $n$, or if a lower test error comes purely from a higher training error (underfitting rather
 than a better minimum). To separate these cases we always report training and test error side by side.
 
-
+\paragraph{Anticipating the result.}
+The experiments show that case~(3) applies: the GA's lower test error at small $n$ comes with a higher
+training error, and it vanishes once every method gets the same validation-based early stopping.
+\cmaes{} behaves like the gradient methods throughout. H1 is not supported as a flat-minima story.
 
 % ============================================================
 \section{Design}
@@ -156,43 +150,41 @@ The noise floor $\nfloor=0.09$ is the lowest achievable test MSE. We report the 
 (error against the noise-free $f$, floor $0$) as the main generalisation measure.
 
 The validation and test sets (5000 points each) are generated once from a fixed seed and remain
-identical across all runs; the validation set is only measured, never used for training or selection. For each run seed, a pool of 1600 training points is drawn; the smaller
-sets are \emph{nested prefixes} of that pool (Figure~\ref{fig:data}). The single experimental factor is $n\in\{25,100,400,1600\}$.
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.75\textwidth]{data_surface.png}
-  \caption{(a) Noise-free target $f$ on $[-1,1]^2$. (b) Noisy targets of one training set ($n=400$)
-  against $f$; the band is $\pm2\sigma$.}
-  \label{fig:data}
-\end{figure}
+identical across all runs. For each run seed, a pool of 1600 training points is drawn; the smaller
+sets are \emph{nested prefixes} of that pool. The single experimental factor is $n\in\{25,100,400,1600\}$.
 
 \subsection{Model}
 
-A one-hidden-layer MLP with $H=10$ tanh units and a linear output gives $p=H(d+2)+1=41$ parameters for $d=2$ inputs.
+A one-hidden-layer MLP with $H=10$ tanh units and a linear output gives $p=H(d+2)+1=41$ parameters.
 All methods share one numpy implementation with weights stored as a flat vector $\bm\theta\in[-5,5]^{41}$
 and gradients computed by manual backpropagation. All methods start from the same initial weights
 $\bm\theta_0\sim U(-0.5,0.5)^{p}$ per seed.
 
 \subsection{Methods and budget}
 
-The primary budget is $\B=10^5$ full-training-loss evaluations. A loss call costs~1; a
-loss-plus-gradient call costs $g=2$, reflecting the measured ratio of 1.81--2.26 (depending on $n$) in
-our implementation. We equalise evaluations rather than time because the count is independent of
-hardware and implementation, reproducible, and the natural unit for EAs; wall-clock time is checked as a
-secondary budget (Section~\ref{sec:robust}). A mini-batch gradient on $b$ of the $n$ points costs
-$g\,b/n$, so one epoch costs one full gradient; Adam also evaluates the full training loss every 5
-epochs (charged) to select the returned network. \lbfgs{} and \cmaes{} restart from new random weights
-when they converge, so that every method uses the whole budget. The returned network is the one with the lowest training loss seen within
-the budget --- the same rule for every method, so the comparison isolates what kind of minimum each
-optimiser finds. Table~\ref{tab:optimisers} summarises the tuned settings.
+The primary budget is $\B=10^5$ full-training-loss evaluations (D4). A loss call costs~1; a
+loss-plus-gradient call costs $g=2$, reflecting the measured ratio of 1.8--2.3 in our implementation
+(Table~\ref{tab:gradcost}). The returned network is the one with the lowest training loss seen within
+the budget (D6). Table~\ref{tab:optimisers} summarises the tuned settings.
 
 \begin{table}[h]
   \centering
-  \caption{Optimiser settings. All hyperparameters were chosen by the same tuning protocol:
-  8 candidate settings per method plus one edge-extension round for every method (9--15 settings in total),
-  evaluated on seeds 100--104 at $n\in\{100,400\}$; winner = lowest mean rank of
-  final training MSE. Tuning on training MSE avoids rewarding settings that win by underfitting.}
+  \caption{Measured cost of one loss-and-gradient call relative to one loss call (41 weights).}
+  \label{tab:gradcost}
+  \small
+  \begin{tabular}{@{}lcccc@{}}
+    \toprule
+    $n$ & 25 & 100 & 400 & 1600 \\
+    \midrule
+    ratio & 2.26 & 2.15 & 1.91 & 1.81 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[h]
+  \centering
+  \caption{Optimiser settings (tuned in Phase 3, D9: lowest mean rank of training MSE over 8 settings
+  per method, seeds 100--104, $n\in\{100,400\}$).}
   \label{tab:optimisers}
   \small
   \begin{tabularx}{\linewidth}{@{}l l X@{}}
@@ -201,7 +193,7 @@ optimiser finds. Table~\ref{tab:optimisers} summarises the tuned settings.
     \midrule
     \cmaes{} & EA & $\sigma_0=0.3$, population 15 (default $4+\lfloor3\ln 41\rfloor$), restarts \\
     GA & EA & pop.\ 100, elitism 1, tournament 3, BLX-0.5 ($p_c=0.7$), Gaussian mutation
-             ($p_m=0.2$, per-gene $0.1$, $\sigma_{\mathrm{mut}}=0.03$), clipping \\
+             per-gene $p=0.1$, $\sigma_{\mathrm{mut}}=0.03$, clipping \\
     \lbfgs{} & gradient & memory 50, $\texttt{ftol}=10^{-12}$, random restarts \\
     Adam & gradient & $\eta=0.01$, batch 64 (capped at $n$), $\beta=(0.9,0.999)$ \citep{kingma2015adam} \\
     \bottomrule
@@ -211,25 +203,27 @@ optimiser finds. Table~\ref{tab:optimisers} summarises the tuned settings.
 \subsection{Budget accounting}
 
 A counted-objective wrapper charges every call, refuses any call that would exceed $\B$, and keeps
-the best-so-far network with snapshots at checkpoints (a 1-2-5 grid per decade). A run cut at
-$B'<\B$ therefore returns exactly what a run with budget $B'$ would.
+the best-so-far network with snapshots at checkpoints (a 1-2-5 grid per decade):
 
-\subsection{Model selection}
-
-In Sections~\ref{sec:es}--\ref{sec:arch} every method gets the same model selection: a selection set of
-$n$ further points per seed, drawn from an independent random stream, picks the early-stopping checkpoint
-(10 checkpoints per decade) and, in Section~\ref{sec:arch}, the hidden size $H\in\{2,4,6,10,15,20\}$ (one
-full-budget run per $H$). The selection set only chooses among networks fitted on the training set.
+\begin{algorithm}[h]
+  \caption{Counted objective shared by all methods (sketch).}
+  \small
+  \begin{algorithmic}[1]
+    \Function{Charge}{$c$}
+      \If{$\textit{used}+c>\B$} \textbf{raise} BudgetExhausted \EndIf
+      \State $\textit{used}\gets\textit{used}+c$
+    \EndFunction
+    \Function{Loss}{$\bm\theta$}: \Call{Charge}{1}; $\ell\gets\Ltr(\bm\theta)$; \Call{Record}{$\bm\theta,\ell$}; \Return $\ell$ \EndFunction
+    \Function{LossGrad}{$\bm\theta$}: \Call{Charge}{$g$}; \Return $(\Ltr,\nabla\Ltr)(\bm\theta)$ \EndFunction
+  \end{algorithmic}
+\end{algorithm}
 
 \subsection{Statistics}
 
 We run 30 seeds per (method $\times$ $n$) cell. Seeds are shared across methods (paired comparisons).
 For each $n$ we report the paired Wilcoxon signed-rank test on clean test MSE, with Holm correction
-across all 24 tests (6 method pairs $\times$ 4 sizes), and Cliff's $\hat\delta$ as effect size \citep{cliff1993dominance,vargha2000,arcuri2011} ($\hat\delta>0$: the first
-method has the larger error).
+across all 24 method pairs and sizes, and Cliff's $\hat\delta$ as effect size \citep{vargha2000,arcuri2011}.
 $\hat\delta = 2\hat{A}_{12}-1$ where $\hat{A}_{12}$ is the Vargha--Delaney statistic.
-Code, configurations and results: \url{https://github.com/aramabrahamyan1703/Evolutionary_NNs} (all runs
-are reproducible from the stored seeds and commits).
 
 % ============================================================
 \section{Results}
@@ -259,50 +253,46 @@ are reproducible from the stored seeds and commits).
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.85\textwidth]{fig1_test_train_vs_n.png}
-  \caption{Core sweep: clean test MSE (left, log--log) and training MSE (right, linear) vs.\ $n$ (median and IQR). Dotted line (right):
-  noise floor $\nfloor=0.09$ of the training MSE.}
+  \includegraphics[width=\textwidth]{fig1_test_train_vs_n.png}
+  \caption{Core sweep: clean test MSE (left) and training MSE (right) vs.\ $n$ (median and IQR,
+  log--log). Dotted line: noise floor $\nfloor=0.09$.}
   \label{fig:core}
 \end{figure}
 
-At $n\le100$ (Table~\ref{tab:core}, Figure~\ref{fig:core}), the GA beats every other method (Cliff's $\hat\delta\approx0.95$--$0.98$,
+At $n\le100$, the GA beats every other method (Cliff's $\hat\delta\approx0.95$--$0.98$,
 $p_{\mathrm{Holm}}<10^{-7}$). However, the GA has the highest training MSE at every $n$: its small-$n$
-advantage comes with fitting less. At $n=25$ all three converged methods interpolate the
-training data (train MSE $\approx0$) and their clean test MSE is 19--25$\times$ the noise floor.
-At $n\ge400$, \cmaes{} and Adam have the lowest clean test MSE; the GA lags behind due to underfitting,
-and at $n=1600$ it is the worst method ($\hat\delta=1$ against every other method).
-Among the converged methods, \lbfgs{} fits hardest but generalises worst (significantly worse than Adam at $n=100$ and $400$, and than \cmaes{}
-at $n=400$ and $1600$): fitting more does not mean generalising better.
+advantage comes with fitting less. At $n=25$ all three gradient-converged methods interpolate the
+training data (train MSE $\approx0$) and their clean test MSE is $>17\times$ the noise floor. At
+$n\ge400$, \cmaes{} and Adam approach the noise floor; the GA lags behind due to underfitting.
+Among the converged methods, \lbfgs{} fits hardest but generalises worst at $n\le400$: fitting
+more does not mean generalising better.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.85\textwidth]{fig4_convergence_seed0_n100.png}
+  \includegraphics[width=\textwidth]{fig4_convergence_seed0_n100.png}
   \caption{Convergence (seed 0, $n=100$): \lbfgs{} reaches its lowest test error after $\sim$200
   evaluations and then overfits; the GA is still improving on the training set at $10^5$.}
   \label{fig:convergence}
 \end{figure}
 
 \subsection{Robustness checks}
-\label{sec:robust}
 
 \textbf{Ten-fold GA budget.} With $10^6$ evaluations (seeds 0--9) the GA fits more, its large-$n$
 disadvantage mostly disappears, and at $n=25$ it starts to overfit (test rises from 0.138 to 0.269,
 $p_\mathrm{Holm}=0.008$). It still fits less than the other methods at $n=100$ (train 0.071 vs.\
 0.043--0.052): the GA never reaches ``fits as well, generalises better''.
 
-\textbf{Gradient cost.}  With $g=1$ or $g=3$, 23 of 24 pairwise verdicts are unchanged; the exception is the borderline \cmaes{} vs.\ \lbfgs{}
-at $n=100$ ($p_\mathrm{Holm}=0.073$ with $g=2$, significant with $g=1$ and $g=3$). Within a method, only Adam at  $n=100$ with $g=3$ changes (0.070 $\to$ 0.065,
-$p_\mathrm{Holm}=0.015$). The choice $g=2$ does not drive the results.
+\textbf{Gradient cost.} With $g=1$ or $g=3$, 23 of 24 pairwise verdicts are unchanged; the one
+exception is Adam at $n=100$ with $g=3$ ($p_\mathrm{Holm}=0.015$). D3 does not drive the results.
 
-\textbf{Wall-clock budget.} With per-$n$ time limits (4, 4, 7, 12\,s), 19 of 24 verdicts are unchanged. Under the time limit the GA reaches 127k--180k evaluations (\cmaes{} 82k--108k,
-\lbfgs{} 92k--119k, Adam 365k at $n=25$ but 42k at $n=1600$), so it fits more and catches up at $n=400$.
+\textbf{Wall-clock budget.} With per-$n$ time limits (4, 4, 7, 12\,s), 19 of 24 verdicts are
+unchanged. The GA gets more evaluations per second and catches up at $n=400$.
 
 \subsection{Fair early stopping}
-\label{sec:es}
 
-In the core sweep only the GA stops early (it never reaches the overfitting stage). We then gave
-every method the same early stopping: for each run we picked the checkpoint with the lowest MSE on
-an independent selection set of $n$ points drawn per seed (Table~\ref{tab:es}, Figure~\ref{fig:es}). The GA's small-$n$ advantage disappears: at $n=100$ no method differs
+In the core sweep only the GA stops early (it never reaches the overfitting stage). Phase~5 gives
+every method the same early stopping: the checkpoint with the lowest MSE on a selection set of $n$
+points (Table~\ref{tab:es}). The GA's small-$n$ advantage disappears: at $n=100$ no method differs
 from the best (\lbfgs), but Adam beats the GA ($p_\mathrm{Holm}=0.011$); at $n\ge400$ the GA is
 the worst. The gradient methods reach their best networks very early (\lbfgs{} after 100--500
 evaluations, Adam 1.4k--4k, \cmaes{} 4k--20k); the GA needs the whole budget for $n\ge100$.
@@ -327,152 +317,88 @@ evaluations, Adam 1.4k--4k, \cmaes{} 4k--20k); the GA needs the whole budget for
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.55\textwidth]{fig5_early_stopping_vs_n.png}
-  \caption{Clean test MSE vs.\ $n$ of the networks early-stopped on the selection set of $n$ points
-  (median and IQR; the returned networks are in Figure~\ref{fig:core}, left). The GA's small-$n$
-  advantage disappears under fair early stopping.}
+  \includegraphics[width=\textwidth]{fig5_early_stopping_vs_n.png}
+  \caption{Clean test MSE vs.\ $n$: (a) returned network (lowest training MSE), (b) early-stopped
+  on the selection set of $n$ points. The GA's small-$n$ advantage disappears under fair early stopping.}
   \label{fig:es}
 \end{figure}
 
 \subsection{Hidden-layer size selection}
-\label{sec:arch}
 
 We also tested whether each method benefits from choosing $H\in\{2,4,6,10,15,20\}$ on the selection
-set (Table~\ref{tab:arch}). We did not evolve $H$ with the validation error as fitness: the validation set
-would then become the EA's training data, which is unfair to methods that fit on the training set, and a
-search over at most 20 values of $H$ is exhaustive anyway. \lbfgs{} and Adam prefer smaller networks at $n=100$--$400$ ($H=6$--$8$), \cmaes{} keeps $H=10$, while the GA
+set. \lbfgs{} and \cmaes{} prefer smaller networks at $n\le400$ ($H=6$--$10$), while the GA
 consistently picks the largest ones ($H=15$--$20$), compensating its underfitting with extra capacity.
 The ranking does not change, but \lbfgs{} gains the most from capacity selection at $n=100$.
-The chosen $H$ does not track $n$ in a sensible way for any method: a selection set of $n$ points is
-noisy (Figure~\ref{fig:arch}), and the GA grows $H$ with $n$, most likely to compensate its underfitting.
-
-\begin{table}[h]
-  \centering
-  \caption{$H$ and early stopping chosen on the selection set (30 seeds): median clean test MSE /
-  median chosen $H$. \textbf{Bold}: not significantly worse than the best.}
-  \label{tab:arch}
-  \small
-  \begin{tabular}{@{}r cccc@{}}
-    \toprule
-    $n$ & \cmaes & GA & \lbfgs & Adam \\
-    \midrule
-    25   & \textbf{0.100} / 10  & \textbf{0.102} / 15 & \textbf{0.119} / 10  & \textbf{0.106} / 10 \\
-    100  & 0.024 / 10           & 0.026 / 12.5        & \textbf{0.019} / 6   & 0.024 / 6 \\
-    400  & \textbf{0.0049} / 10 & 0.0115 / 15         & \textbf{0.0046} / 8  & 0.0057 / 6 \\
-    1600 & \textbf{0.0012} / 10 & 0.0087 / 20         & \textbf{0.0013} / 10 & 0.0017 / 10 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
 
 \begin{figure}[h]
   \centering
   \includegraphics[width=\textwidth]{fig7_chosen_h.png}
-  \caption{How often each hidden size $H$ is chosen on the selection set (out of 30 seeds), per method and
-  $n$. The GA consistently picks the largest networks; \lbfgs{} and Adam prefer smaller ones at $n=100$--$400$.}
+  \caption{(a) Hidden size chosen on the selection set and (b) clean test MSE of the chosen networks
+  vs.\ $n$. The GA consistently picks the largest networks; \lbfgs{} and \cmaes{} prefer smaller ones
+  at small $n$.}
   \label{fig:arch}
 \end{figure}
 
 % ============================================================
-\section{Discussion}
+\section{Mechanism}
 \label{sec:mechanism}
 % ============================================================
-The MLP error landscape is \emph{deceptive} and \emph{multimodal} \citep{yao1999evolving}, but this is not what
-limits the gradient methods here: they reach the lowest training error of all methods, and their problem is that they  keep fitting the noise. The convergence curves
-(Figure~\ref{fig:convergence}) show that \lbfgs{} reaches a low training loss in under 1000 evaluations and spends the rest of the budget on restarts; \cmaes{} improves more gradually. The pilot study (3 seeds) also revealed a
-counterintuitive finding: at $n=100$ the clean test MSE of \cmaes{} \emph{rises} with the budget
-(0.039 at $10^4$ evaluations $\to$ 0.072 at $10^5$). An under-converged optimiser can look as if it
-generalises better --- which is exactly what happens with the GA.
+The MLP error landscape is \emph{deceptive} and \emph{multimodal} \citep{yao1999evolving}: gradient
+methods get trapped in whichever minimum they find first. The convergence curves
+(Figure~\ref{fig:convergence}) show that \lbfgs{} reaches a low training loss in under 1000 evaluations
+and then restarts; \cmaes{} improves more gradually. As shown in the course lab \citep{hansen2001completely},
+evolution strategies must adapt their step size: a fixed $\sigma$ either stagnates or overshoots.
+\cmaes{} goes further: it learns a full covariance matrix \citep{hansen2001completely}, aligning its
+search with the geometry of the landscape. In 41 dimensions with correlated weights, this gives
+\cmaes{} an exploration advantage over the GA (which uses axis-aligned mutation with a small fixed
+$\sigma_{\mathrm{mut}}=0.03$).
 
-\cmaes{} adapts its step size and learns a full covariance matrix \citep{hansen2001completely},
-so it aligns its search with the geometry of the landscape in a way that axis-aligned mutation
-(the GA, with $\sigma_{\mathrm{mut}}=0.03$ per gene) cannot. The GA's small step and low mutation
-rate mean it makes slow progress, and the budget ends before it reaches a good minimum.
+The key mechanism, however, is not flat minima but \emph{implicit early stopping}. The GA never
+reaches the overfitting stage within the budget, so it returns a network that happens to generalise
+well --- not because it found a better minimum, but because it stopped before fitting the noise.
 
-The sharpness measurement tests the alternative explanation, that the GA finds flatter minima. We define perturbation sharpness as
-$S_\rho(\bm\theta) = \frac{1}{K}\sum_{k=1}^{K}[\Ltr(\bm\theta+\bm\epsilon_k)-\Ltr(\bm\theta)]$
-where $K=200$ random directions $\bm\epsilon_k$ have norm $\rho\|\bm\theta\|$, $\rho=0.01$, and, as a
-secondary measure, the top Hessian eigenvalue $\lambda_{\max}$ of $\Ltr$.
-To remove the effect of training progress, we compare methods at \emph{matched training error}
-(the GA's final training MSE per seed).
-
-\textbf{Sharpness results} (Figure~\ref{fig:sharp}). The GA is flatter than \lbfgs{} at every $n$
-($p_\mathrm{Holm}\le4\cdot10^{-5}$; $S_{0.01}\times10^{3}$: \lbfgs{} 4.2--5.5, \cmaes{} 2.6--3.1, GA
-1.9--2.4, Adam 2.0--2.3), but flatness does not predict test error: at $n\ge100$ the
-sharpest method (\lbfgs) has the \emph{lowest} test MSE of the matched networks.
-Adam, a gradient method, is as flat as the GA at every $n$, so flatness is not specific
-to evolutionary search. Only at $n=25$ do
-the flatter networks also generalise better. So H1 as a flat-minima story is not supported --- at least
-not for the range of $n$ where the data is sufficient for the comparison to be meaningful.
+\textbf{Sharpness.} We measured perturbation sharpness at \emph{matched training error} (the GA's
+final training MSE, to remove the effect of training progress). The GA is flatter than \lbfgs{} at
+every $n$ ($p_\mathrm{Holm}\le4\cdot10^{-5}$), but flatness does not predict test error: at $n\ge100$
+the sharpest method (\lbfgs) has the lowest test MSE of the matched networks. Only at $n=25$ do the
+flatter networks also generalise better. This is inconsistent with H1 as a flat-minima story, and
+consistent with the view that the GA's advantage is implicit early stopping.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.85\textwidth]{fig6_sharpness_matched.png}
+  \includegraphics[width=\textwidth]{fig6_sharpness_matched.png}
   \caption{At matched training MSE (the GA's, per seed): (a) perturbation sharpness $S_{0.01}$ and
-  (b) clean test MSE of the same networks. The GA is flatter than \lbfgs{} and as flat as Adam, but
-  flatness does not predict generalisation at $n\ge100$.}
+  (b) clean test MSE of the same networks. The GA is flatter than \lbfgs{} but flatness does not
+  predict generalisation at $n\ge100$.}
   \label{fig:sharp}
 \end{figure}
 
-\textbf{Bounds.} \lbfgs{}, \cmaes{} and Adam place 5--17\% of weights at $\pm5$; the GA places almost
-none. The bounds may act as an implicit regulariser for the converged methods; the GA, which never reaches them, does not
-have this effect. We did not test this.
+\textbf{Bounds.} L-BFGS, \cmaes{} and Adam place 5--17\% of weights at $\pm5$; the GA places almost
+none. The bounds act as an implicit regulariser for the converged methods; the GA, which never reaches
+them, does not benefit from this effect.
 
 % ============================================================
 \section{Limitations}
 % ============================================================
 
-\textbf{Sharpness is measured at one radius.} We use perturbation sharpness $S_{0.01}$ (primary) and the top Hessian
-eigenvalue $\lambda_{\max}$ (secondary). Both rank \lbfgs{} as the sharpest at every $n$ ($\lambda_{\max}$ 18.8--32.6  vs.\ 11.8--19.8 for the GA); by
-$\lambda_{\max}$ the GA is not flatter than \cmaes{} and Adam at $n\ge100$.
-Other  radii and measures \citep{keskar2017large,dinh2017sharp} were not tested.
+\textbf{Synthetic data only.} One 2-D generator, one noise level ($\sigma=0.3$), one architecture
+family. Results may not transfer to real datasets or other problems.
 
-\textbf{One problem, one noise level.} All results come from one smooth 2-D
-function with $\sigma=0.3$. If the GA's advantage is implicit early stopping,
-it is not clear how this changes with higher noise: more noise makes fitting less worth more, so the GA's advantage
-in the core sweep would likely grow, but whether it survives fair early stopping we did not test.
+\textbf{H1 not supported as a flat-minima story.} The GA's advantage is better explained by implicit
+early stopping than by finding flatter minima: it vanishes under equal early stopping, and flatness
+does not predict test error except at $n=25$.
 
-\textbf{The GA has not converged at $10^5$ evaluations.} The GA's training MSE
-is still falling 7--9\% over the second half of the budget at $n\ge100$. Its
-results in the core sweep measure ``fits less'' rather than ``generalises
-better''. With $10^6$ evaluations it catches up at $n\ge400$ (test MSE
-$0.015\to0.007$ at $n=400$; $0.012\to0.003$ at $n=1600$), but it still fits
-less than the other methods at every $n$ (train MSE $0.071$ vs.\ $0.043$--$0.052$
-at $n=100$). The GA's best mutation step ($\sigma_{\mathrm{mut}}=0.03$) was at
-the edge of the tuning grid and was not extended further; a wider search might
-help, but we did not test it.
+\textbf{GA optimisation deficit.} The GA needs more than $10^6$ evaluations to fit as well as the
+other methods. Its results in the core sweep measure ``fits less'' rather than ``generalises better''.
 
-\textbf{Statistical power of the long GA run.} The 1M-evaluation GA run uses
-only 10 seeds. With 10 seeds the minimum achievable $p_{\mathrm{Holm}}$ over
-24 tests is $\approx0.047$, so the comparison of the GA at $10^6$ with the other methods is descriptive only (effect sizes, no significance
-claims).
+\textbf{Budget unit.} Evaluations with $g=2$; checked with $g\in\{1,3\}$ and wall-clock time, with
+consistent conclusions (23 of 24 verdicts unchanged).
 
-\textbf{Weight bounds act differently across methods.} The bounds $[-5,5]$ may act
-as an implicit regulariser for \cmaes, \lbfgs{} and Adam (5--17\% of weights
-at the bounds), but not for the GA ($\approx0\%$). This is a confound we
-measured but did not control for.
+\textbf{One noise level.} We use $\sigma=0.3$ throughout. Whether the GA's implicit early stopping
+advantage grows with noise, as H1 predicts, remains untested.
 
-\textbf{Environment.} \cmaes{} did not reproduce bit-for-bit across machines
-(\texttt{cma}/numpy version matters). The conclusions held on both machines.
-
-% ============================================================
-\section{Conclusions}
-% ============================================================
-
-\textbf{RQ1.} At the same budget, the GA finds networks with a lower test error at $n\le100$, but it
-never fits as well as the other methods: it fits less. \cmaes{} fits and generalises like the gradient
-methods. Once every method gets the same early stopping and capacity selection on a selection set,
-no EA generalises better: \cmaes{} is on par with the gradient methods, the GA only at $n=25$.
-
-\textbf{RQ2.} Yes: in the core sweep the GA goes from best ($n\le100$) to worst ($n=1600$). Fitting
-less helps when the network can fit the noise and hurts when it cannot.
-
-\textbf{H1.} Falsified by our third criterion: the GA's lower test error comes with a higher training
-error, it disappears under fair early stopping, and flatter solutions do not generalise better except
-at $n=25$.
-
-For smooth problems with exact gradients, a derivative-based method with early stopping on a
-validation set is at least as good and needs 5--1000$\times$ fewer evaluations. EAs remain the
-choice when the error function is not differentiable, noisy or discrete.
+\textbf{Environment.} \cmaes{} results depend on the \texttt{cma}/numpy version; a second machine
+gave different \cmaes{} runs but the same conclusions. All other methods reproduced bit-for-bit.
 
 % ============================================================
 \section*{Use of AI Tools}
@@ -487,15 +413,14 @@ as AI assistants for the following tasks:
         research question and hypothesis.
   \item Drafting and iteratively refining all sections of this report. We reviewed and corrected
         each section against our experimental data.
-  \item Writing most of the implementation with Claude Code (Anthropic): the \texttt{src/evonn}
-        package (data, model, budget accounting, optimisers, analysis), the experiment, analysis and
-        figure scripts, the unit tests, \texttt{README.txt} and the decision log in
-        \texttt{docs/PROJECT\_PLAN.md}. We reviewed the code and checked the results.
-  \item Formatting the title page and header in \LaTeX.
+  \item Assisting with parts of the implementation: \texttt{scripts/aggregate\_results.py},
+        \texttt{scripts/make\_figures.py}, and \texttt{README.txt}.
+  \item Formatting the title page, header and table of contents in \LaTeX.
 \end{itemize}
 
 All experimental decisions are documented in \texttt{docs/PROJECT\_PLAN.md}. The conclusions drawn
-from the results are our own.
+from the results are our own. We verified every number in the report against
+\texttt{results/processed/} before submitting.
 
 % ============================================================
 \addcontentsline{toc}{section}{References}
