@@ -41,6 +41,7 @@ python scripts/aggregate_results.py                          # JSONs -> results/
 python scripts/make_figures.py                               # report figures -> figures/
 python scripts/compare_runs.py configs/core_gradcost1.yaml   # a secondary experiment vs the core sweep
 python scripts/arch.py --jobs 8                               # Phase 5 (see README.txt for all Phase 5 steps)
+python scripts/effect_sizes.py                               # GA vs best other method, bootstrap CIs (report Table 5)
 ```
 
 ## Repository layout

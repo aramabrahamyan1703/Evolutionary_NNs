@@ -63,8 +63,6 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done. Phases match `docs/PROJEC
 - [ ] (not planned) E3: noise sweep / d=5 robustness check
 
 ## Phase 6: Report
-- [ ] Outline in `report/`
-- [ ] Methods and setup section (every decision, with justification)
-- [ ] Results and discussion of H1
-- [ ] Limitations and future work
-- [ ] Final proofread, then tag the release
+- [x] Report in `report/main.tex` (10 pages, A4): question and hypothesis, design, results, mechanism, limitations, conclusions
+- [x] Checked against the brief (`practical_exercises.pdf` §1.1-1.2): A4 and 10 pages, all names, README.txt, AI use cited, effect sizes with bootstrap CIs (`scripts/effect_sizes.py`), control, run-count justification
+- [ ] Final PDF from Overleaf, proofread, then tag `v1.0` and build the submission zip

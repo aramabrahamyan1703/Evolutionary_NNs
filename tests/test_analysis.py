@@ -121,3 +121,29 @@ def test_ga_long_config_differs_only_where_intended():
     # max_seconds is only used by wall-clock budgets
     fields = ("experiment.name", "experiment.methods", "experiment.seeds", "budget.max_evals", "budget.max_seconds")
     assert _without(cfg, *fields) == _without(CORE, *fields)
+
+
+def test_vargha_delaney_and_cliff_agree():
+    from evonn.analysis import vargha_delaney
+    x, y = [1, 2, 3, 3], [2, 3, 4, 0]
+    assert vargha_delaney(x, y) == pytest.approx((cliffs_delta(x, y) + 1) / 2)
+    assert vargha_delaney([2, 3], [0, 1]) == 1.0 and vargha_delaney([1, 1], [1, 1]) == 0.5
+
+
+def test_paired_bootstrap_interval():
+    from evonn.analysis import paired_bootstrap
+    rng = np.random.default_rng(1)
+    y = rng.uniform(0, 1, 30)
+    diff, lo, hi, a12, a_lo, a_hi = paired_bootstrap(y + 1.0, y)
+    assert diff == pytest.approx(1.0) and lo <= diff <= hi and lo > 0     # clear shift: CI excludes 0
+    assert a_lo <= a12 <= a_hi
+    same = paired_bootstrap(y, y)
+    assert same[0] == 0 and same[1] == 0 and same[2] == 0 and same[3] == 0.5
+    assert paired_bootstrap(y + 1, y) == paired_bootstrap(y + 1, y)        # fixed seed: reproducible
+
+
+def test_wilcoxon_table_has_intervals():
+    df = pd.concat([_df({s: float(s) for s in range(10)}, "a"), _df({s: s + 5.0 for s in range(10)}, "b")])
+    row = make_wilcoxon(df).iloc[0]
+    assert row["diff_lo"] <= row["median_diff"] <= row["diff_hi"] and row["diff_hi"] < 0
+    assert row["a12_lo"] <= row["a12"] <= row["a12_hi"]

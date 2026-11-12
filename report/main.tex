@@ -1,8 +1,8 @@
-\documentclass[11pt]{article}
+\documentclass[11pt,a4paper]{article}
 
 % Define margins
 \usepackage{geometry}
-\geometry{top=2cm, bottom=2cm, left=2cm, right=2cm, headheight=23pt}
+\geometry{a4paper, top=2cm, bottom=2cm, left=2cm, right=2cm, headheight=23pt}
 
 \usepackage{graphicx}
 \graphicspath{{images/}{../figures/}{figures/}}
@@ -158,6 +158,11 @@ The noise floor $\nfloor=0.09$ is the lowest achievable test MSE. We report the 
 The validation and test sets (5000 points each) are generated once from a fixed seed and remain
 identical across all runs; the validation set is only measured, never used for training or selection. For each run seed, a pool of 1600 training points is drawn; the smaller
 sets are \emph{nested prefixes} of that pool (Figure~\ref{fig:data}). The single experimental factor is $n\in\{25,100,400,1600\}$.
+We use the suggested defaults where they exist ($d=2$ inputs, weights in $[-5,5]$, a test set of 5000 points);
+$\sigma=0.3$ makes the noise variance 9\% of the variance of $f$, enough for fitting the noise to matter.
+\emph{Control:} at $n=1600$ ($p/n=0.026$) any method that fits must reach a training MSE close to
+$\nfloor$ and a clean test MSE close to 0, and at $n=25$ ($p/n=1.6$) any method that fits must
+interpolate the training data; both outcomes are predictable before running the experiment.
 
 \begin{figure}[h]
   \centering
@@ -170,9 +175,10 @@ sets are \emph{nested prefixes} of that pool (Figure~\ref{fig:data}). The single
 \subsection{Model}
 
 A one-hidden-layer MLP with $H=10$ tanh units and a linear output gives $p=H(d+2)+1=41$ parameters for $d=2$ inputs.
+$H=10$ lies in the suggested range 5--20 and makes $p/n$ go from over-parameterised ($1.6$) to data-rich ($0.026$).
 All methods share one numpy implementation with weights stored as a flat vector $\bm\theta\in[-5,5]^{41}$
 and gradients computed by manual backpropagation. All methods start from the same initial weights
-$\bm\theta_0\sim U(-0.5,0.5)^{p}$ per seed.
+$\bm\theta_0\sim U(-0.5,0.5)^{p}$ per seed (small, so that the tanh units do not start saturated).
 
 \subsection{Methods and budget}
 
@@ -223,11 +229,17 @@ full-budget run per $H$). The selection set only chooses among networks fitted o
 
 \subsection{Statistics}
 
-We run 30 seeds per (method $\times$ $n$) cell. Seeds are shared across methods (paired comparisons).
+We run 30 seeds per (method $\times$ $n$) cell. Seeds are shared across methods: the same seed gives every
+method the same training set, selection set and initial weights, so all comparisons are paired. Taking the
+first 10 seeds as a pilot, the IQR of the clean test MSE is 13--60\% of the median ($n=100$--$400$); with
+30 seeds the 95\% interval of the GA vs.\ \lbfgs{} difference at $n=100$ narrows from 0.081 to 0.049, and
+the smallest possible Wilcoxon $p$ ($1.9\cdot10^{-9}$) survives a Holm correction over 24 tests.
 For each $n$ we report the paired Wilcoxon signed-rank test on clean test MSE, with Holm correction
 across all 24 tests (6 method pairs $\times$ 4 sizes), and Cliff's $\hat\delta$ as effect size \citep{cliff1993dominance,vargha2000,arcuri2011} ($\hat\delta>0$: the first
 method has the larger error).
 $\hat\delta = 2\hat{A}_{12}-1$ where $\hat{A}_{12}$ is the Vargha--Delaney statistic.
+Effect sizes are given with 95\% confidence intervals from a paired bootstrap (10\,000 resamples of the
+seeds): the difference of medians and $\hat{A}_{12}$.
 Code, configurations and results: \url{https://github.com/aramabrahamyan1703/Evolutionary_NNs} (all runs
 are reproducible from the stored seeds and commits).
 
@@ -372,8 +384,36 @@ noisy (Figure~\ref{fig:arch}), and the GA grows $H$ with $n$, most likely to com
   \label{fig:arch}
 \end{figure}
 
+\subsection{Effect sizes}
+
+Table~\ref{tab:effects} summarises the comparison of the GA with the best other method at each $n$. In the
+core sweep the GA's advantage at $n\le100$ is large and its interval excludes 0; with early stopping or
+capacity selection the interval contains 0 at $n=25$ and lies above 0 from $n=100$ on (at $n=100$ with
+early stopping it only just excludes 0, and the Holm-corrected test is not significant, $p_\mathrm{Holm}=0.21$).
+
+\begin{table}[h]
+  \centering
+  \caption{GA vs.\ the best other method at each $n$ (clean test MSE, 30 paired seeds): difference of medians
+  GA $-$ best [95\% bootstrap CI] and $\hat{A}_{12}=P(\text{GA error}>\text{best's error})$; $<0$ and
+  $\hat A_{12}<0.5$ favour the GA. Best other method: Adam at $n=25$ (core), otherwise \cmaes{} or \lbfgs.}
+  \label{tab:effects}
+  \footnotesize
+  \begin{tabular}{@{}r cc cc cc@{}}
+    \toprule
+    & \multicolumn{2}{c}{Core (lowest training MSE)} & \multicolumn{2}{c}{Early stopping} & \multicolumn{2}{c}{$H$ + early stopping} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+    $n$ & difference & $\hat A_{12}$ & difference & $\hat A_{12}$ & difference & $\hat A_{12}$ \\
+    \midrule
+    25   & $-1.54$ [$-2.21$, $-0.95$]      & 0.02 & $-0.001$ [$-0.033$, $+0.033$] & 0.46 & $+0.001$ [$-0.019$, $+0.016$] & 0.46 \\
+    100  & $-0.037$ [$-0.046$, $-0.027$]   & 0.02 & $+0.006$ [$+0.001$, $+0.010$] & 0.66 & $+0.007$ [$+0.004$, $+0.010$] & 0.77 \\
+    400  & $+0.003$ [$+0.002$, $+0.004$]   & 0.84 & $+0.009$ [$+0.007$, $+0.010$] & 1.00 & $+0.007$ [$+0.006$, $+0.008$] & 0.99 \\
+    1600 & $+0.010$ [$+0.010$, $+0.010$]   & 1.00 & $+0.011$ [$+0.011$, $+0.011$] & 1.00 & $+0.008$ [$+0.007$, $+0.008$] & 1.00 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 % ============================================================
-\section{Discussion}
+\section{Mechanism}
 \label{sec:mechanism}
 % ============================================================
 The MLP error landscape is \emph{deceptive} and \emph{multimodal} \citep{yao1999evolving}, but this is not what
@@ -454,6 +494,11 @@ measured but did not control for.
 \textbf{Environment.} \cmaes{} did not reproduce bit-for-bit across machines
 (\texttt{cma}/numpy version matters). The conclusions held on both machines.
 
+\textbf{How far the conclusion generalises.} It applies to small networks trained on smooth regression
+problems with exact gradients, where early stopping on a validation set is available to every method. It does
+not cover non-differentiable, noisy or discrete error functions, where EAs have no gradient competitor, nor
+large networks or real data, which we did not test.
+
 % ============================================================
 \section{Conclusions}
 % ============================================================
@@ -479,8 +524,8 @@ choice when the error function is not differentiable, noisy or discrete.
 \addcontentsline{toc}{section}{Use of AI Tools}
 % ============================================================
 
-During this project we used OpenCode (powered by Claude Sonnet, Anthropic) and Claude (Anthropic)
-as AI assistants for the following tasks:
+During this project we used OpenCode \citep{opencode2026} (powered by Claude Sonnet, Anthropic), Claude
+\citep{anthropic2026claude} and Claude Code \citep{anthropic2026claudecode} as AI assistants for the following tasks:
 
 \begin{itemize}
   \item Summarising and contextualising the relevant literature, which we used to motivate the

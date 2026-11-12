@@ -36,6 +36,31 @@ def cliffs_delta(x, y):
     return float((greater - less) / (len(x) * len(y)))
 
 
+def vargha_delaney(x, y):
+    """Vargha-Delaney A12: P(x > y) + P(x = y) / 2, in [0, 1] (0.5: no effect; Cliff's delta = 2 A12 - 1)."""
+    x, y = np.asarray(x), np.asarray(y)
+    return float((np.sum(x[:, None] > y[None, :]) + 0.5 * np.sum(x[:, None] == y[None, :])) / (len(x) * len(y)))
+
+
+BOOTSTRAP = 10_000    # resamples for the confidence intervals
+BOOTSTRAP_SEED = 0
+
+
+def paired_bootstrap(x, y, n_boot=BOOTSTRAP, level=0.95, seed=BOOTSTRAP_SEED):
+    """Percentile bootstrap over seeds (pairs resampled together) for the difference of medians
+    median(x) - median(y) and for A12. Returns (diff, diff_lo, diff_hi, a12, a12_lo, a12_hi)."""
+    x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    idx = np.random.default_rng(seed).integers(0, len(x), size=(n_boot, len(x)))
+    xb, yb = x[idx], y[idx]
+    diffs = np.median(xb, axis=1) - np.median(yb, axis=1)
+    gt = (xb[:, :, None] > yb[:, None, :]).mean(axis=(1, 2))
+    eq = (xb[:, :, None] == yb[:, None, :]).mean(axis=(1, 2))
+    a12s = gt + 0.5 * eq
+    q = [(1 - level) / 2 * 100, (1 + level) / 2 * 100]
+    return (float(np.median(x) - np.median(y)), *np.percentile(diffs, q).tolist(),
+            vargha_delaney(x, y), *np.percentile(a12s, q).tolist())
+
+
 def holm_correction(p_values):
     """Holm-Bonferroni adjusted p-values (same order as the input)."""
     p = np.asarray(p_values, dtype=float)
@@ -111,20 +136,24 @@ def _wilcoxon_p(x, y):
 
 def make_wilcoxon(df, metric="test_mse_clean"):
     """Paired Wilcoxon signed-rank test for every method pair at every n, Holm-corrected
-    over all tests in the table; Cliff's delta > 0 means method_a has the larger values.
-    Empty table if there is only one method."""
+    over all tests in the table; Cliff's delta > 0 (A12 > 0.5) means method_a has the larger
+    values. Effect sizes come with 95% paired-bootstrap intervals: the difference of medians
+    (diff_lo, diff_hi) and A12 (a12_lo, a12_hi). Empty table if there is only one method."""
     methods = sorted(df["method"].unique())
     rows = []
     for n in sorted(df["n_train"].unique()):
         for a, b in combinations(methods, 2):
             x, y = paired(df, metric, n, a, b)
             stat, p = _wilcoxon_p(x, y)
+            diff, lo, hi, a12, a_lo, a_hi = paired_bootstrap(x, y)
             rows.append({"n_train": n, "method_a": a, "method_b": b, "runs": len(x),
                          "median_a": float(np.median(x)), "median_b": float(np.median(y)),
-                         "median_diff": float(np.median(x) - np.median(y)),
+                         "median_diff": diff, "diff_lo": lo, "diff_hi": hi,
+                         "a12": a12, "a12_lo": a_lo, "a12_hi": a_hi,
                          "cliffs_delta": cliffs_delta(x, y), "W": stat, "p_raw": p})
     result = pd.DataFrame(rows, columns=["n_train", "method_a", "method_b", "runs", "median_a", "median_b",
-                                         "median_diff", "cliffs_delta", "W", "p_raw"])
+                                         "median_diff", "diff_lo", "diff_hi", "a12", "a12_lo", "a12_hi",
+                                         "cliffs_delta", "W", "p_raw"])
     result["p_holm"] = holm_correction(result["p_raw"]) if len(result) else []
     result["significant"] = result["p_holm"] < 0.05
     return result
