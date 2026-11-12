@@ -87,9 +87,13 @@ def fig_test_train(medians, noise_floor, out):
         ax.set_xticks(NS)
         ax.set_xticklabels([str(n) for n in NS])
         style_ax(ax)
+    # training MSE on a linear axis: on a log axis the interpolation at n = 25 (down to 1e-13)
+    # squeezes the differences that matter (the GA fits less at every n) into one line
+    axes[1].set_yscale("linear")
+    axes[1].set_ylim(0, 1.25 * noise_floor)
 
     axes[0].legend(frameon=False, fontsize=9)
-    axes[1].legend(frameon=False, fontsize=9, handles=axes[1].get_lines()[-1:])
+    axes[1].legend(frameon=False, fontsize=9, loc="lower right", handles=axes[1].get_lines()[-1:])
     plt.tight_layout()
     fig.savefig(out, dpi=200, bbox_inches="tight")
     plt.close(fig)

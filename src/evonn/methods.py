@@ -24,7 +24,7 @@ METHODS = {
     "sgd": sgd.run,
 }
 
-LABELS = {"cmaes": "CMA-ES", "ga": "GA", "lbfgs": "L-BFGS-B", "sgd": "SGD"}
+LABELS = {"cmaes": "CMA-ES", "ga": "GA", "lbfgs": "L-BFGS-B", "sgd": "Adam"}
 
 # plot style per method, shared by every figure: categorical colour slots 1-4 plus a
 # line style and marker each, so methods differ by more than colour

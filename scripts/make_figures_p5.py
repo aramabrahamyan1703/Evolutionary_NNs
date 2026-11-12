@@ -2,12 +2,11 @@
 
     python scripts/make_figures_p5.py
 
-  fig5_early_stopping_vs_n.png  clean test MSE vs n: final network (a) vs early-stopped on the
-                                selection set (b)                       (p5_selection)
+  fig5_early_stopping_vs_n.png  clean test MSE vs n of the networks early-stopped on the
+                                selection set (the returned networks are Fig 1a)   (p5_selection)
   fig6_sharpness_matched.png    perturbation sharpness (a) and clean test MSE (b) vs n, all
                                 methods at the GA's training MSE        (p5_selection/sharpness.csv)
-  fig7_chosen_h.png             chosen hidden size H (a) and clean test MSE of the chosen
-                                networks (b) vs n                        (p5_arch)
+  fig7_chosen_h.png             how often each hidden size H is chosen, per method and n (p5_arch)
 """
 
 import pathlib
@@ -53,16 +52,14 @@ def save(fig, name):
 
 
 def fig_early_stopping():
-    d = PROCESSED / "p5_selection"
-    final, early = pd.read_csv(d / "summary.csv"), pd.read_csv(d / "summary_best_select.csv")
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharey=True)
-    for ax, df, title in zip(axes, [final, early], ["(a) Final network (lowest training MSE)",
-                                                     "(b) Early-stopped on the selection set (n points)"]):
-        band(ax, df, "test_mse_clean")
-        style_ax(ax)
-        ax.set_title(title, loc="left", fontsize=11)
-    axes[0].set_ylabel("Clean test MSE (floor 0)", fontsize=11)
-    axes[0].legend(frameon=False, fontsize=9)
+    # the returned networks (no early stopping) are Fig 1(a); this figure shows only the early-stopped ones
+    early = pd.read_csv(PROCESSED / "p5_selection" / "summary_best_select.csv")
+    fig, ax = plt.subplots(figsize=(6, 4.5))
+    band(ax, early, "test_mse_clean")
+    style_ax(ax)
+    ax.set_ylabel("Clean test MSE (floor 0)", fontsize=11)
+    ax.set_title("Early-stopped on the selection set (n points)", loc="left", fontsize=11)
+    ax.legend(frameon=False, fontsize=9)
     save(fig, "fig5_early_stopping_vs_n.png")
 
 
@@ -83,18 +80,28 @@ def fig_sharpness():
 
 
 def fig_chosen_h():
-    chosen = pd.read_csv(PROCESSED / "p5_arch" / "chosen.csv")
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
-    band(axes[0], chosen, "hidden")
-    band(axes[1], chosen, "test_mse_clean")
-    style_ax(axes[0], log_y=False)
-    style_ax(axes[1])
-    axes[0].set_ylabel("Chosen hidden size H", fontsize=11)
-    axes[1].set_ylabel("Clean test MSE (floor 0)", fontsize=11)
-    axes[0].set_title("(a) H chosen on the selection set", loc="left", fontsize=11)
-    axes[1].set_title("(b) Test error with H and early stopping chosen", loc="left", fontsize=11)
-    axes[0].legend(frameon=False, fontsize=9)
-    save(fig, "fig7_chosen_h.png")
+    """How often each H is chosen, per method (small multiples): one hue, light = rarely, dark = often."""
+    counts = pd.read_csv(PROCESSED / "p5_arch" / "chosen_h.csv").set_index(["method", "n_train"])
+    hs = [int(c) for c in counts.columns]
+    fig, axes = plt.subplots(1, 4, figsize=(12, 3.4), sharey=True)
+    for ax, m in zip(axes, METHODS):
+        grid = counts.loc[m].T.to_numpy()                   # rows: H, columns: n
+        im = ax.imshow(grid, cmap="Blues", vmin=0, vmax=30, origin="lower", aspect="auto")
+        for i in range(grid.shape[0]):
+            for j in range(grid.shape[1]):
+                ax.text(j, i, int(grid[i, j]), ha="center", va="center", fontsize=8,
+                        color="white" if grid[i, j] > 15 else "#28272a")
+        ax.set_xticks(range(len(NS)), [str(n) for n in NS])
+        ax.set_yticks(range(len(hs)), [str(h) for h in hs])
+        ax.set_xlabel("Training set size n", fontsize=10)
+        ax.set_title(LABELS[m], loc="left", fontsize=11)
+        for side in ax.spines.values():
+            side.set_visible(False)
+    axes[0].set_ylabel("Chosen hidden size H", fontsize=10)
+    fig.colorbar(im, ax=axes, fraction=0.02, pad=0.01, label="runs (of 30)")
+    fig.savefig(FIGS / "fig7_chosen_h.png", dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print("  -> figures/fig7_chosen_h.png")
 
 
 def main():

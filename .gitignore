@@ -33,3 +33,6 @@ report/*.toc
 report/*.bbl
 report/*.blg
 report/*.synctex.gz
+report/*.fls
+report/*.fdb_latexmk
+report/main.pdf
